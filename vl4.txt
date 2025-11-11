@@ -1,0 +1,2371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Physics Laboratory Simulation</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <style>
+        /* Base Theme and Font */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a192f 0%, #111827 100%);
+            color: #e5e7eb; /* Light gray text */
+            transition: background-color 0.3s ease;
+            min-height: 10vh;
+        }
+
+        /* Neon Glow Effect for Headings and Buttons */
+        .neon-glow {
+            text-shadow: 0 0 5px #0ff, 0 0 10px #0ff, 0 0 15px #0ff;
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        .neon-button {
+            transition: all 0.3s ease;
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.5), 0 0 16px rgba(0, 255, 255, 0.3);
+        }
+        .neon-button:hover {
+            box-shadow: 0 0 12px #0ff, 0 0 24px #0ff, 0 0 40px #0ff;
+            transform: scale(1.05);
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            100% { opacity: 1; }
+        }
+
+        /* Particle Background Animation for Home Banner */
+        .particle-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .particle {
+            position: absolute;
+            width: 5px;
+            height: 5px;
+            background: rgba(0, 255, 255, 0.7);
+            border-radius: 50%;
+            animation: moveParticle linear infinite;
+        }
+
+        /* Generic particle animation */
+        @keyframes moveParticle {
+            0% { transform: translate(0, 0); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translate(var(--x), var(--y)); opacity: 0; }
+        }
+
+        /* Simulation CSS Overrides */
+        .experiment-section {
+            display: none; /* Controlled by JS navigation */
+        }
+
+        /* Newton's Rings Styling */
+        .rings-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px solid;
+            opacity: 0.6;
+            transform: scale(0);
+            animation: ringExpand 5s linear infinite;
+        }
+        .ring:nth-child(1) { width: 50px; height: 50px; border-color: #f90; animation-delay: 0s; }
+        .ring:nth-child(2) { width: 100px; height: 100px; border-color: #0ff; animation-delay: 0.5s; }
+        .ring:nth-child(3) { width: 150px; height: 150px; border-color: #f0f; animation-delay: 1s; }
+        .ring:nth-child(4) { width: 200px; height: 200px; border-color: #ff0; animation-delay: 1.5s; }
+        .ring:nth-child(5) { width: 250px; height: 250px; border-color: #0ff; animation-delay: 2s; }
+
+        @keyframes ringExpand {
+            0% { transform: scale(0.1); opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+
+        /* Glowing Underline for h2 */
+        .glowing-underline {
+            display: inline-block;
+            padding-bottom: 4px;
+            border-bottom: 2px solid #0ff;
+            box-shadow: 0 4px 8px rgba(0, 255, 255, 0.5);
+        }
+
+        /* Hide sections initially */
+        .page-content { display: none; }
+        
+        /* Table Style */
+        .obs-table th, .obs-table td {
+            border: 1px solid #4b5563;
+            padding: 8px;
+            text-align: center;
+        }
+        .obs-table input {
+            background: transparent;
+            border: none;
+            width: 80px;
+            text-align: center;
+            color: #e5e7eb;
+        }
+        .obs-table input:focus {
+            outline: 1px solid #0ff;
+        }
+
+        /* Experiment Card Hover Effect */
+        .experiment-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .experiment-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 10px 20px rgba(0, 255, 255, 0.2);
+        }
+
+        /* Formula display styling */
+        .formula {
+            display: inline-block;
+            font-size: 1.2rem;
+            font-weight: 600;
+            background: rgba(0, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 8px;
+            border-left: 3px solid #0ff;
+            margin: 10px 0;
+            color: #0ff;
+        }
+
+        /* Simulation-specific styles */
+        #photoelectric-canvas, #resonance-canvas, #hall-canvas, #laser-canvas, #diode-canvas {
+            border: 1px solid #0ff;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header & Navigation -->
+    <header class="sticky top-0 z-50 bg-gray-900/90 backdrop-blur-sm shadow-xl">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-4">
+            <div class="text-2xl font-bold text-[#0ff] neon-glow">
+                Virtual Lab
+            </div>
+            <div class="space-x-4 md:space-x-8">
+                <a href="#home" class="nav-link text-gray-300 hover:text-[#0ff] transition duration-300" onclick="showPage('home')">Home</a>
+                <a href="#experiments" class="nav-link text-gray-300 hover:text-[#0ff] transition duration-300" onclick="showPage('experiments')">Experiments</a>
+                <a href="#about" class="nav-link text-gray-300 hover:text-[#0ff] transition duration-300" onclick="showPage('about')">About</a>
+                <a href="#contact" class="nav-link text-gray-300 hover:text-[#0ff] transition duration-300" onclick="showPage('contact')">Contact</a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="container mx-auto p-4 sm:p-8 flex-grow">
+
+        <!-- 1. Home Page -->
+        <section id="home" class="page-content min-h-[80vh] relative pt-16">
+            <div class="particle-container" id="particle-bg"></div>
+
+            <div class="relative z-10 text-center py-20 bg-gray-900/50 rounded-xl shadow-2xl">
+                <h1 class="text-5xl md:text-7xl font-extrabold mb-4 text-white">
+                    <span class="neon-glow">Welcome to Virtual Physics Laboratory</span>
+                </h1>
+                <p class="xl:text-2xl text-gray-400 mb-8">
+                    Explore Interactive Engineering Physics Experiments
+                </p>
+                <div class="max-w-3xl mx-auto text-lg text-gray-300 mb-12">
+                    This platform brings complex engineering physics experiments to life through interactive simulations, detailed theory, and step-by-step procedures. Visualize concepts like wave optics and solid-state physics from the comfort of your digital workspace.
+                </div>
+                <button onclick="showPage('experiments')" class="neon-button bg-[#0a192f] text-[#0ff] px-8 py-3 rounded-full font-semibold text-lg transition duration-300">
+                    Start Exploring Experiments <i class="fas fa-flask ml-2"></i>
+                </button>
+            </div>
+
+            <h2 class="text-3xl font-bold mt-16 mb-8 text-center glowing-underline">
+                Features
+            </h2>
+            
+            <div id="experiment-cards-summary" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                <!-- Cards will be populated by JS -->
+            </div>
+        </section>
+
+        <!-- 2. Experiments Page (The main container for all experiments) -->
+        <section id="experiments" class="page-content pt-16">
+            <h1 class="text-4xl font-bold mb-10 text-center glowing-underline">
+                Interactive Engineering Physics Experiments
+            </h1>
+
+            <div id="experiment-list" class="flex flex-wrap justify-center gap-4 mb-12">
+                <!-- Experiment selector buttons -->
+            </div>
+
+            <!-- Experiment 1: Newton's Rings -->
+            <div id="exp-newtons-rings" class="experiment-section p-6 bg-gray-800 rounded-xl shadow-2xl border border-[#0ff]/30 mb-12">
+                <h2 class="text-3xl font-bold mb-6 text-[#0ff] glowing-underline">
+                    🧪 (a) Newton’s Rings Experiment
+                </h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 space-y-8">
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">📘 (b) Objective</h3>
+                            <p class="text-gray-400">To determine the wavelength of monochromatic light using Newton’s Rings.</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧬 (c) Apparatus Required</h3>
+                            <ul class="list-disc list-inside text-gray-400 pl-4 space-y-1">
+                                <li>Plano-convex lens of large radius of curvature</li>
+                                <li>Optically flat glass plate</li>
+                                <li>Monochromatic light source (e.g., Sodium lamp)</li>
+                                <li>Travelling microscope with a reading scale</li>
+                                <li>Plane glass plate for light reflection</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">⚙️ (d) Theory</h3>
+                            <p class="text-gray-400 mb-3">Newton's rings are interference fringes formed by monochromatic light reflected between a spherical surface (plano-convex lens) and an adjacent flat surface (glass plate). The diameters of the dark rings are proportional to the square root of natural numbers, and the wavelength ($\lambda$) is related to the diameters of the rings and the radius of curvature of the lens ($R$).</p>
+                            <p class="formula">
+                                $\lambda = \frac{(D^2_{n+k} - D^2_n)}{4kR}$
+                            </p>
+                            <p class="text-sm text-gray-500 mt-2">Where $D_n$ and $D_{n+k}$ are the diameters of the $n^{th}$ and $(n+k)^{th}$ dark rings, and $k$ is the difference in ring order.</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧫 (e) Procedure</h3>
+                            <ol class="list-decimal list-inside text-gray-400 pl-4 space-y-2">
+                                <li>Place the apparatus under the travelling microscope.</li>
+                                <li>Illuminate the setup with a monochromatic light source.</li>
+                                <li>Adjust the microscope until the rings are clearly visible.</li>
+                                <li>Set the vertical crosswire tangential to the $n^{th}$ dark ring on one side. Record the reading ($R_1$).</li>
+                                <li>Move the microscope across the center to the other side and set the crosswire tangential to the same $n^{th}$ dark ring. Record the reading ($R_2$).</li>
+                                <li>Repeat steps 4 and 5 for several ring orders ($n+2, n+4, \dots$).</li>
+                                <li>Calculate the diameter $D_n = |R_1 - R_2|$ and then $D^2_{n+k} - D^2_n$.</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧠 (f) Simulation</h3>
+                        <div class="rings-container" id="newtons-rings-sim">
+                            <div class="ring" style="--x: 300px; --y: 300px;"></div>
+                            <div class="ring" style="--x: -300px; --y: 200px;"></div>
+                            <div class="ring" style="--x: 250px; --y: -350px;"></div>
+                            <div class="ring" style="--x: -200px; --y: -250px;"></div>
+                            <div class="ring" style="--x: 100px; --y: -100px;"></div>
+                        </div>
+                        <button id="start-rings-sim" class="neon-button w-full mt-4 bg-purple-900 text-white px-4 py-2 rounded-lg font-semibold">
+                            Start Simulation
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-12">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-300">📊 (g) Observation Table</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full obs-table text-sm text-gray-400">
+                            <thead>
+                                <tr class="bg-gray-700/50 text-[#0ff]">
+                                    <th>S.No</th>
+                                    <th>Ring Order (n)</th>
+                                    <th>D<sub class="text-xs">n</sub> (mm)</th>
+                                    <th>D<sub class="text-xs">n+2</sub> (mm)</th>
+                                    <th>(D<sub class="text-xs">n+2</sub>² - D<sub class="text-xs">n</sub>²) (mm²)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="hover:bg-gray-700">
+                                    <td>1</td>
+                                    <td>2</td>
+                                    <td><input type="number" id="nr-d2" value="0.45" step="0.01"></td>
+                                    <td><input type="number" id="nr-d4" value="0.63" step="0.01"></td>
+                                    <td id="nr-calc-1">0.20</td>
+                                </tr>
+                                <tr class="hover:bg-gray-700">
+                                    <td>2</td>
+                                    <td>4</td>
+                                    <td><input type="number" id="nr-d4-b" value="0.63" step="0.01"></td>
+                                    <td><input type="number" id="nr-d6" value="0.79" step="0.01"></td>
+                                    <td id="nr-calc-2">0.22</td>
+                                </tr>
+                                <tr class="hover:bg-gray-700">
+                                    <td>Average</td>
+                                    <td colspan="3"></td>
+                                    <td id="nr-avg-diff">0.21</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between">
+                        <input type="number" id="nr-R" value="950" class="bg-gray-700 rounded-lg p-2 text-sm" placeholder="Radius of Curvature R (mm)">
+                        <button onclick="calculateNewtonRings()" class="neon-button bg-green-900 text-white px-6 py-2 rounded-lg font-semibold">
+                            Calculate Result
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-4 border border-green-500 rounded-lg bg-green-900/20">
+                    <h3 class="text-2xl font-semibold mb-2 text-green-400">🧾 (h) Result</h3>
+                    <p id="nr-result" class="text-xl font-bold text-green-300">Wavelength of sodium light ($\lambda$) = 589 nm</p>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-2xl font-semibold mb-2 text-gray-300">🧩 (i) Conclusion</h3>
+                    <p class="text-gray-400">The Newton's Rings experiment successfully demonstrates the principle of interference in thin air films to determine the wavelength of monochromatic light.</p>
+                </div>
+            </div>
+
+            <!-- Experiment 2: Diffraction Grating -->
+            <div id="exp-diffraction-grating" class="experiment-section p-6 bg-gray-800 rounded-xl shadow-2xl border border-[#0ff]/30 mb-12">
+                <h2 class="text-3xl font-bold mb-6 text-[#0ff] glowing-underline">
+                    🧪 (a) Diffraction Grating Experiment
+                </h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 space-y-8">
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">📘 (b) Objective</h3>
+                            <p class="text-gray-400">To determine the wavelength of light using a plane transmission diffraction grating.</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧬 (c) Apparatus Required</h3>
+                            <ul class="list-disc list-inside text-gray-400 pl-4 space-y-1">
+                                <li>Spectrometer (prism/grating table, collimator, telescope)</li>
+                                <li>Diffraction grating (known lines per inch)</li>
+                                <li>Light source (e.g., Mercury lamp)</li>
+                                <li>Reading lens</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">⚙️ (d) Theory</h3>
+                            <p class="text-gray-400 mb-3">Diffraction occurs when waves encounter an obstacle or opening. A diffraction grating contains a large number of equidistant, parallel slits. When light passes through the grating, the condition for maximum intensity (constructive interference) is given by the grating equation.</p>
+                            <p class="formula">
+                                $ (a + b) \sin\theta = n\lambda $
+                            </p>
+                            <p class="text-sm text-gray-500 mt-2">Where $(a+b)$ is the grating element (reciprocal of lines/mm), $\theta$ is the angle of diffraction for the $n^{th}$ order maximum, and $\lambda$ is the wavelength of light.</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧫 (e) Procedure</h3>
+                            <ol class="list-decimal list-inside text-gray-400 pl-4 space-y-2">
+                                <li>Level the spectrometer and adjust the collimator to receive light from the source.</li>
+                                <li>Mount the grating perpendicular to the collimator axis.</li>
+                                <li>Locate the central (zero-order) image.</li>
+                                <li>Rotate the telescope to locate the first-order spectrum ($n=1$) for a specific spectral line (e.g., Yellow-1).</li>
+                                <li>Note the readings for the left and right side of the first-order spectrum.</li>
+                                <li>Calculate the angle of diffraction ($\theta$) as half the difference between the left and right readings.</li>
+                                <li>Repeat for the second order ($n=2$) and other spectral lines.</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧠 (f) Simulation</h3>
+                        <div class="w-full bg-gray-900 rounded-xl p-2 border border-gray-700">
+                            <canvas id="diffraction-canvas" width="400" height="300" class="rounded-lg shadow-inner"></canvas>
+                        </div>
+                        <button id="start-diffraction-sim" class="neon-button w-full mt-4 bg-purple-900 text-white px-4 py-2 rounded-lg font-semibold">
+                            Start Simulation
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-12">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-300">📊 (g) Observation Table</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full obs-table text-sm text-gray-400">
+                            <thead>
+                                <tr class="bg-gray-700/50 text-[#0ff]">
+                                    <th>S.No</th>
+                                    <th>Color</th>
+                                    <th>Order (n)</th>
+                                    <th>Left Reading ($\theta_L$) (deg)</th>
+                                    <th>Right Reading ($\theta_R$) (deg)</th>
+                                    <th>Angle 2$\theta$ (deg)</th>
+                                    <th>Mean $\theta$ (deg)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="hover:bg-gray-700">
+                                    <td>1</td>
+                                    <td>Violet</td>
+                                    <td>1</td>
+                                    <td><input type="number" id="dg-vl" value="15.10" step="0.01"></td>
+                                    <td><input type="number" id="dg-vr" value="15.90" step="0.01"></td>
+                                    <td id="dg-calc-2theta-v">0.80</td>
+                                    <td id="dg-calc-theta-v">0.40</td>
+                                </tr>
+                                <tr class="hover:bg-gray-700">
+                                    <td>2</td>
+                                    <td>Yellow</td>
+                                    <td>1</td>
+                                    <td><input type="number" id="dg-yl" value="16.50" step="0.01"></td>
+                                    <td><input type="number" id="dg-yr" value="17.50" step="0.01"></td>
+                                    <td id="dg-calc-2theta-y">1.00</td>
+                                    <td id="dg-calc-theta-y">0.50</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between">
+                        <input type="number" id="dg-N" value="6000" class="bg-gray-700 rounded-lg p-2 text-sm" placeholder="Lines/cm (N)">
+                        <button onclick="calculateDiffractionGrating()" class="neon-button bg-green-900 text-white px-6 py-2 rounded-lg font-semibold">
+                            Calculate Result
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-4 border border-green-500 rounded-lg bg-green-900/20">
+                    <h3 class="text-2xl font-semibold mb-2 text-green-400">🧾 (h) Result</h3>
+                    <p id="dg-result" class="text-xl font-bold text-green-300">Wavelength of light (Yellow Line, $n=1$) = 589 nm</p>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-2xl font-semibold mb-2 text-gray-300">🧩 (i) Conclusion</h3>
+                    <p class="text-gray-400">The Diffraction Grating experiment successfully uses the principle of diffraction to precisely determine the wavelengths of various spectral lines emitted by a source.</p>
+                </div>
+            </div>
+            
+            <!-- Experiment 3: Photoelectric Effect (Fully Implemented) -->
+            <div id="exp-photoelectric-effect" class="experiment-section p-6 bg-gray-800 rounded-xl shadow-2xl border border-[#0ff]/30 mb-12">
+                <h2 class="text-3xl font-bold mb-6 text-[#0ff] glowing-underline">
+                    🧪 (a) Photoelectric Effect
+                </h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 space-y-8">
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">📘 (b) Objective</h3>
+                            <p class="text-gray-400">To study the variation of **photoelectric current** with **intensity** and **frequency** of incident radiation, and to determine **Planck's constant** and the **Work Function** of the cathode material.</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧬 (c) Apparatus Required</h3>
+                            <ul class="list-disc list-inside text-gray-400 pl-4 space-y-1">
+                                <li>Photoelectric Cell (Evacuated glass tube with Cathode (E) and Anode (C))</li>
+                                <li>Monochromatic light source and filters (or a frequency tuner)</li>
+                                <li>Micro-ammeter (to measure photoelectric current)</li>
+                                <li>Potentiometer/Variable Voltage Source (to apply stopping potential)</li>
+                                <li>Voltmeter (to measure applied potential)</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">⚙️ (d) Theory</h3>
+                            <p class="text-gray-400 mb-3">According to Einstein's explanation, light is composed of photons (quanta) with energy $E = h\nu$. When a photon strikes the metal surface (cathode), its energy is transferred to an electron. Part of the energy is used to liberate the electron (Work Function, $\phi$), and the rest is given to the electron as Kinetic Energy.</p>
+                            <p class="formula">
+                                $ h\nu = \phi + K.E_{max} = \phi + e V_0 $
+                            </p>
+                            <p class="text-sm text-gray-500 mt-2">Where $h$ is Planck's constant, $\nu$ is the frequency of incident radiation, $V_0$ is the stopping potential, and $e$ is the electronic charge.</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧫 (e) Procedure</h3>
+                            <ol class="list-decimal list-inside text-gray-400 pl-4 space-y-2">
+                                <li>Set up the photoelectric cell circuit with the variable voltage source.</li>
+                                <li>Use a monochromatic light source and fix its **intensity** and **frequency ($\nu$)**.</li>
+                                <li>Vary the retarding potential ($V$) applied to the collector (Anode) and measure the resulting photoelectric current ($I$).</li>
+                                <li>Find the **stopping potential ($V_0$)** where the current becomes zero.</li>
+                                <li>Repeat the process (steps 2-4) for at least three different frequencies of light.</li>
+                                <li>Plot a graph of the stopping potential ($V_0$) (y-axis) versus the frequency ($\nu$) (x-axis). The slope of this line gives $h/e$.</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧠 (f) Simulation</h3>
+                        <div class="w-full bg-gray-900 rounded-xl p-2 border border-gray-700">
+                            <canvas id="photoelectric-canvas" width="400" height="300" class="rounded-lg shadow-inner bg-gray-900"></canvas>
+                        </div>
+                        <div class="mt-4 space-y-3 p-3 bg-gray-700 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm">Frequency ($\nu$):</label>
+                                <input type="range" id="pe-freq-slider" min="0.5" max="3" step="0.1" value="1.5" oninput="updatePhotoelectricParams()">
+                                <span id="pe-freq-display" class="text-[#0ff] text-sm w-12 text-right">1.5 PHz</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm">Intensity (I):</label>
+                                <input type="range" id="pe-intensity-slider" min="10" max="100" step="10" value="50" oninput="updatePhotoelectricParams()">
+                                <span id="pe-intensity-display" class="text-[#0ff] text-sm w-12 text-right">50%</span>
+                            </div>
+                        </div>
+                        <button id="start-photoelectric-sim" class="neon-button w-full mt-4 bg-purple-900 text-white px-4 py-2 rounded-lg font-semibold">
+                            Start Simulation
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-12">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-300">📊 (g) Observation Table</h3>
+                    <p class="text-sm text-gray-500 mb-2">Note: Frequency ($\nu$) is in PHz ($10^{15}$ Hz), Stopping Potential ($V_0$) is in Volts.</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full obs-table text-sm text-gray-400">
+                            <thead>
+                                <tr class="bg-gray-700/50 text-[#0ff]">
+                                    <th>S.No</th>
+                                    <th>Frequency ($\nu$) (PHz)</th>
+                                    <th>Stopping Potential ($V_0$) (V)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="hover:bg-gray-700">
+                                    <td>1</td>
+                                    <td><input type="number" id="pe-nu1" value="1.05" step="0.01"></td>
+                                    <td><input type="number" id="pe-v1" value="0.51" step="0.01"></td>
+                                </tr>
+                                <tr class="hover:bg-gray-700">
+                                    <td>2</td>
+                                    <td><input type="number" id="pe-nu2" value="1.50" step="0.01"></td>
+                                    <td><input type="number" id="pe-v2" value="1.11" step="0.01"></td>
+                                </tr>
+                                <tr class="hover:bg-gray-700">
+                                    <td>3</td>
+                                    <td><input type="number" id="pe-nu3" value="1.95" step="0.01"></td>
+                                    <td><input type="number" id="pe-v3" value="1.71" step="0.01"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex items-center justify-end">
+                        <button onclick="calculatePhotoelectric()" class="neon-button bg-green-900 text-white px-6 py-2 rounded-lg font-semibold">
+                            Calculate Planck's Constant
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-4 border border-green-500 rounded-lg bg-green-900/20">
+                    <h3 class="text-2xl font-semibold mb-2 text-green-400">🧾 (h) Result</h3>
+                    <p id="pe-result-h" class="text-xl font-bold text-green-300">Calculated Planck's Constant ($h$) = 6.63 $\times 10^{-34}$ J$\cdot$s</p>
+                    <p id="pe-result-phi" class="text-lg font-medium text-green-300">Calculated Work Function ($\phi$) = 2.10 eV</p>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-2xl font-semibold mb-2 text-gray-300">🧩 (i) Conclusion</h3>
+                    <p class="text-gray-400">The Photoelectric Effect experiment successfully validates the quantum nature of light by determining the work function and providing a value for Planck's constant.</p>
+                </div>
+            </div>
+
+            <!-- Experiment 4: Resonance Tube (Fully Implemented) -->
+            <div id="exp-resonance-tube" class="experiment-section p-6 bg-gray-800 rounded-xl shadow-2xl border border-[#0ff]/30 mb-12">
+                <h2 class="text-3xl font-bold mb-6 text-[#0ff] glowing-underline">
+                    🧪 (a) Resonance Tube Experiment
+                </h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 space-y-8">
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">📘 (b) Objective</h3>
+                            <p class="text-gray-400">To determine the **velocity of sound in air** at room temperature using a resonance column apparatus and a tuning fork of known frequency.</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧬 (c) Apparatus Required</h3>
+                            <ul class="list-disc list-inside text-gray-400 pl-4 space-y-1">
+                                <li>Resonance column apparatus (glass tube, reservoir, scale)</li>
+                                <li>Tuning forks of known frequencies (e.g., 512 Hz)</li>
+                                <li>Rubber hammer or pad</li>
+                                <li>Thermometer (to measure room temperature)</li>
+                                <li>Water source</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">⚙️ (d) Theory</h3>
+                            <p class="text-gray-400 mb-3">The resonance tube acts as a closed organ pipe. When the length of the air column resonates with the frequency ($\nu$) of the tuning fork, a standing wave is formed, producing a loud sound. The fundamental resonant lengths are approximately $\lambda/4$ (first resonance $L_1$) and $3\lambda/4$ (second resonance $L_2$), corrected for end effects.</p>
+                            <p class="formula">
+                                $\lambda = 2 (L_2 - L_1)$
+                                <span class="text-sm text-gray-500 block mt-1">and</span>
+                                $v = \nu \lambda$
+                            </p>
+                            <p class="text-sm text-gray-500 mt-2">Where $\lambda$ is the wavelength, $L_1$ and $L_2$ are the first and second resonant lengths, and $v$ is the velocity of sound in air.</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧫 (e) Procedure</h3>
+                            <ol class="list-decimal list-inside text-gray-400 pl-4 space-y-2">
+                                <li>Fill the tube with water and strike a tuning fork of known frequency ($\nu$).</li>
+                                <li>Slowly lower the water level until the first loud sound (first resonance, $L_1$) is heard. Record the length of the air column.</li>
+                                <li>Continue lowering the water level until the second loud sound (second resonance, $L_2$) is heard. Record the length.</li>
+                                <li>Measure the ambient room temperature ($T$).</li>
+                                <li>Calculate the wavelength $\lambda$ using $\lambda = 2(L_2 - L_1)$.</li>
+                                <li>Calculate the velocity of sound $v$ using $v = \nu \lambda$.</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧠 (f) Simulation</h3>
+                        <div class="w-full bg-gray-900 rounded-xl p-2 border border-gray-700">
+                            <canvas id="resonance-canvas" width="400" height="300" class="rounded-lg shadow-inner bg-gray-900"></canvas>
+                        </div>
+                        <div class="mt-4 space-y-3 p-3 bg-gray-700 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm">Air Column Length (cm):</label>
+                                <input type="range" id="res-length-slider" min="10" max="80" step="0.5" value="30" oninput="updateResonanceParams()">
+                                <span id="res-length-display" class="text-[#0ff] text-sm w-12 text-right">30.0 cm</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm">Tuning Fork Freq ($\nu$):</label>
+                                <input type="number" id="res-freq-input" value="512" step="10" class="bg-gray-900 rounded p-1 text-sm text-right w-16">
+                            </div>
+                        </div>
+                        <button id="start-resonance-sim" class="neon-button w-full mt-4 bg-purple-900 text-white px-4 py-2 rounded-lg font-semibold">
+                            Start Simulation
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-12">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-300">📊 (g) Observation Table</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full obs-table text-sm text-gray-400">
+                            <thead>
+                                <tr class="bg-gray-700/50 text-[#0ff]">
+                                    <th>S.No</th>
+                                    <th>Frequency ($\nu$) (Hz)</th>
+                                    <th>$L_1$ (First Resonance) (cm)</th>
+                                    <th>$L_2$ (Second Resonance) (cm)</th>
+                                    <th>$\lambda = 2(L_2 - L_1)$ (cm)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="hover:bg-gray-700">
+                                    <td>1</td>
+                                    <td><input type="number" id="res-nu1" value="512" step="10"></td>
+                                    <td><input type="number" id="res-l1" value="16.0" step="0.1"></td>
+                                    <td><input type="number" id="res-l2" value="48.0" step="0.1"></td>
+                                    <td id="res-calc-lambda">64.0</td>
+                                </tr>
+                                <tr class="hover:bg-gray-700">
+                                    <td>2</td>
+                                    <td><input type="number" id="res-nu2" value="480" step="10"></td>
+                                    <td><input type="number" id="res-l1-b" value="17.1" step="0.1"></td>
+                                    <td><input type="number" id="res-l2-b" value="51.5" step="0.1"></td>
+                                    <td id="res-calc-lambda-b">68.8</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between">
+                         <input type="number" id="res-temp" value="27" class="bg-gray-700 rounded-lg p-2 text-sm" placeholder="Room Temp (C)">
+                        <button onclick="calculateResonanceTube()" class="neon-button bg-green-900 text-white px-6 py-2 rounded-lg font-semibold">
+                            Calculate Velocity of Sound
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-4 border border-green-500 rounded-lg bg-green-900/20">
+                    <h3 class="text-2xl font-semibold mb-2 text-green-400">🧾 (h) Result</h3>
+                    <p id="res-result-v" class="text-xl font-bold text-green-300">Calculated Velocity of Sound ($v$) at 27°C = 338.0 m/s</p>
+                    <p id="res-result-v0" class="text-lg font-medium text-green-300">Velocity of Sound at $0^\circ C$ ($v_0$) = 332.0 m/s</p>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-2xl font-semibold mb-2 text-gray-300">🧩 (i) Conclusion</h3>
+                    <p class="text-gray-400">The Resonance Tube experiment successfully applies the principle of sound wave resonance in a closed pipe to determine the velocity of sound in air.</p>
+                </div>
+            </div>
+
+            <!-- Experiment 5: Hall Effect (Fully Implemented) -->
+            <div id="exp-hall-effect" class="experiment-section p-6 bg-gray-800 rounded-xl shadow-2xl border border-[#0ff]/30 mb-12">
+                <h2 class="text-3xl font-bold mb-6 text-[#0ff] glowing-underline">
+                    🧪 (a) Hall Effect
+                </h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 space-y-8">
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">📘 (b) Objective</h3>
+                            <p class="text-gray-400">To determine the **Hall coefficient** ($R_H$) and **carrier concentration** ($n$) of a given semiconductor material (Hall Probe).</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧬 (c) Apparatus Required</h3>
+                            <ul class="list-disc list-inside text-gray-400 pl-4 space-y-1">
+                                <li>Electromagnet (to produce a strong magnetic field, $B$)</li>
+                                <li>Hall Probe (thin rectangular semiconductor sample)</li>
+                                <li>Constant Current Source (to apply current $I$ through the sample)</li>
+                                <li>Hall Voltage Meter / Microvoltmeter (to measure $V_H$)</li>
+                                <li>Gauss meter / Teslameter (to measure Magnetic Field $B$)</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">⚙️ (d) Theory</h3>
+                            <p class="text-gray-400 mb-3">When a current ($I$) flows through a semiconductor placed in a transverse magnetic field ($B$), the magnetic Lorentz force deflects the charge carriers (electrons or holes) to one side of the sample, creating a measurable voltage difference called the **Hall Voltage** ($V_H$).</p>
+                            <p class="formula">
+                                $ R_H = \frac{V_H \cdot t}{I \cdot B} $
+                                <span class="text-sm text-gray-500 block mt-1">and</span>
+                                $ n = \frac{1}{|R_H| \cdot e} $
+                            </p>
+                            <p class="text-sm text-gray-500 mt-2">Where $t$ is the thickness of the sample, $I$ is the current, $B$ is the magnetic field, $R_H$ is the Hall coefficient, and $n$ is the charge carrier concentration.</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧫 (e) Procedure</h3>
+                            <ol class="list-decimal list-inside text-gray-400 pl-4 space-y-2">
+                                <li>Place the Hall probe between the poles of the electromagnet and measure the thickness ($t$).</li>
+                                <li>Set the control current ($I$) to a constant value (e.g., $5$ mA).</li>
+                                <li>Vary the magnetic field ($B$) and measure the corresponding Hall Voltage ($V_H$).</li>
+                                <li>Plot a graph of $V_H$ vs $B$ to confirm linearity. The slope $V_H/B$ is used to calculate $R_H$.</li>
+                                <li>Alternatively, fix $B$ and vary $I$ to measure $V_H$ vs $I$.</li>
+                                <li>Calculate the average Hall Coefficient ($R_H$) and subsequently the Carrier Concentration ($n$).</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧠 (f) Simulation</h3>
+                        <div class="w-full bg-gray-900 rounded-xl p-2 border border-gray-700">
+                            <canvas id="hall-canvas" width="400" height="300" class="rounded-lg shadow-inner bg-gray-900"></canvas>
+                        </div>
+                        <div class="mt-4 space-y-3 p-3 bg-gray-700 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm">Magnetic Field ($B$) (T):</label>
+                                <input type="range" id="hall-B-slider" min="0.1" max="1.0" step="0.1" value="0.5" oninput="updateHallEffectParams()">
+                                <span id="hall-B-display" class="text-[#0ff] text-sm w-12 text-right">0.5 T</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm">Current ($I$) (mA):</label>
+                                <input type="range" id="hall-I-slider" min="1" max="10" step="1" value="5" oninput="updateHallEffectParams()">
+                                <span id="hall-I-display" class="text-[#0ff] text-sm w-12 text-right">5 mA</span>
+                            </div>
+                        </div>
+                        <button id="start-hall-sim" class="neon-button w-full mt-4 bg-purple-900 text-white px-4 py-2 rounded-lg font-semibold">
+                            Start Simulation
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-12">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-300">📊 (g) Observation Table</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full obs-table text-sm text-gray-400">
+                            <thead>
+                                <tr class="bg-gray-700/50 text-[#0ff]">
+                                    <th>S.No</th>
+                                    <th>Thickness ($t$) (mm)</th>
+                                    <th>Constant Current ($I$) (mA)</th>
+                                    <th>Magnetic Field ($B$) (T)</th>
+                                    <th>Hall Voltage ($V_H$) (mV)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="hover:bg-gray-700">
+                                    <td>1</td>
+                                    <td><input type="number" id="hall-t" value="0.5" step="0.1"></td>
+                                    <td><input type="number" id="hall-i1" value="5.0" step="0.1"></td>
+                                    <td><input type="number" id="hall-b1" value="0.3" step="0.1"></td>
+                                    <td><input type="number" id="hall-v1" value="1.2" step="0.1"></td>
+                                </tr>
+                                <tr class="hover:bg-gray-700">
+                                    <td>2</td>
+                                    <td><input type="number" value="0.5" step="0.1" disabled class="bg-gray-700/50"></td>
+                                    <td><input type="number" id="hall-i2" value="5.0" step="0.1"></td>
+                                    <td><input type="number" id="hall-b2" value="0.6" step="0.1"></td>
+                                    <td><input type="number" id="hall-v2" value="2.4" step="0.1"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex items-center justify-end">
+                        <button onclick="calculateHallEffect()" class="neon-button bg-green-900 text-white px-6 py-2 rounded-lg font-semibold">
+                            Calculate Hall Coefficient
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-4 border border-green-500 rounded-lg bg-green-900/20">
+                    <h3 class="text-2xl font-semibold mb-2 text-green-400">🧾 (h) Result</h3>
+                    <p id="hall-result-rh" class="text-xl font-bold text-green-300">Hall Coefficient ($R_H$) = $4.00 \times 10^{-4}$ m$^3$/C</p>
+                    <p id="hall-result-n" class="text-lg font-medium text-green-300">Carrier Concentration ($n$) = $1.56 \times 10^{22}$ carriers/m$^3$</p>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-2xl font-semibold mb-2 text-gray-300">🧩 (i) Conclusion</h3>
+                    <p class="text-gray-400">The Hall Effect experiment confirms the magnetic deflection of charge carriers in a semiconductor and allows for the determination of critical material properties like the carrier type and concentration.</p>
+                </div>
+            </div>
+
+            <!-- Experiment 6: Laser Diffraction (Fully Implemented) -->
+            <div id="exp-laser-diffraction" class="experiment-section p-6 bg-gray-800 rounded-xl shadow-2xl border border-[#0ff]/30 mb-12">
+                <h2 class="text-3xl font-bold mb-6 text-[#0ff] glowing-underline">
+                    🧪 (a) Laser Diffraction Experiment
+                </h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 space-y-8">
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">📘 (b) Objective</h3>
+                            <p class="text-gray-400">To determine the **wavelength of a laser light** using a single slit diffraction apparatus by measuring the fringe pattern dimensions.</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧬 (c) Apparatus Required</h3>
+                            <ul class="list-disc list-inside text-gray-400 pl-4 space-y-1">
+                                <li>Laser source (e.g., He-Ne laser)</li>
+                                <li>Adjustable single slit or set of precision slits ($a$)</li>
+                                <li>Screen/Wall (to observe pattern)</li>
+                                <li>Travelling microscope or meter scale (to measure $x_m$)</li>
+                                <li>Optical bench/meter scale (to measure screen distance $D$)</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">⚙️ (d) Theory</h3>
+                            <p class="text-gray-400 mb-3">Single-slit diffraction occurs when light passes through a narrow aperture, causing the wave to spread and create an intensity pattern of alternating bright and dark fringes on a screen. The condition for the location of the **dark fringes** (minima) is given by:</p>
+                            <p class="formula">
+                                $ a \sin\theta = m\lambda $
+                            </p>
+                            <p class="text-gray-400 mb-3">For the first-order minima ($m=1$) and small angles ($\sin\theta \approx \tan\theta = x_m / D$):</p>
+                            <p class="formula">
+                                $\lambda = \frac{a \cdot x_m}{D \cdot m}$
+                            </p>
+                            <p class="text-sm text-gray-500 mt-2">Where $a$ is the slit width, $x_m$ is the distance from the central maximum to the $m^{th}$ minimum, $D$ is the slit-to-screen distance, and $\lambda$ is the wavelength.</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧫 (e) Procedure</h3>
+                            <ol class="list-decimal list-inside text-gray-400 pl-4 space-y-2">
+                                <li>Set up the laser, single slit, and screen on the optical bench. Measure the screen distance ($D$).</li>
+                                <li>Ensure the laser beam is perpendicular to the slit plane.</li>
+                                <li>Measure the distance between two corresponding minima (e.g., $m=3$ left and $m=3$ right) using a travelling microscope. This distance is $2x_3$.</li>
+                                <li>The distance $x_m$ is half of the total measured distance ($2x_m / 2$).</li>
+                                <li>Repeat the measurement for different orders of minima ($m=1, 2, 3...$) and calculate the average wavelength.</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧠 (f) Simulation</h3>
+                        <div class="w-full bg-gray-900 rounded-xl p-2 border border-gray-700">
+                            <canvas id="laser-canvas" width="400" height="300" class="rounded-lg shadow-inner bg-gray-900"></canvas>
+                        </div>
+                        <div class="mt-4 space-y-3 p-3 bg-gray-700 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm">Slit Width ($a$) (mm):</label>
+                                <input type="range" id="laser-a-slider" min="0.1" max="1.0" step="0.1" value="0.2" oninput="updateLaserDiffractionParams()">
+                                <span id="laser-a-display" class="text-[#0ff] text-sm w-12 text-right">0.2 mm</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm">Screen Distance ($D$) (cm):</label>
+                                <input type="range" id="laser-D-slider" min="50" max="200" step="10" value="100" oninput="updateLaserDiffractionParams()">
+                                <span id="laser-D-display" class="text-[#0ff] text-sm w-12 text-right">100 cm</span>
+                            </div>
+                        </div>
+                        <button id="start-laser-sim" class="neon-button w-full mt-4 bg-purple-900 text-white px-4 py-2 rounded-lg font-semibold">
+                            Start Simulation
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-12">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-300">📊 (g) Observation Table</h3>
+                    <p class="text-sm text-gray-500 mb-2">Laser $\lambda$ (mock value) = 632.8 nm. Slit Width $a$ (mm), Distance $x_m$ (cm), Screen Distance $D$ (cm).</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full obs-table text-sm text-gray-400">
+                            <thead>
+                                <tr class="bg-gray-700/50 text-[#0ff]">
+                                    <th>S.No</th>
+                                    <th>Slit Width ($a$) (mm)</th>
+                                    <th>Order ($m$)</th>
+                                    <th>$x_m$ (Center to $m^{th}$ Minima) (cm)</th>
+                                    <th>Screen Distance ($D$) (cm)</th>
+                                    <th>Calculated $\lambda$ (nm)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="hover:bg-gray-700">
+                                    <td>1</td>
+                                    <td><input type="number" id="laser-a1" value="0.2" step="0.01"></td>
+                                    <td><input type="number" id="laser-m1" value="1" step="1"></td>
+                                    <td><input type="number" id="laser-x1" value="0.32" step="0.01"></td>
+                                    <td><input type="number" id="laser-d1" value="100" step="1"></td>
+                                    <td id="laser-calc-lambda1">640.0</td>
+                                </tr>
+                                <tr class="hover:bg-gray-700">
+                                    <td>2</td>
+                                    <td><input type="number" id="laser-a2" value="0.2" step="0.01"></td>
+                                    <td><input type="number" id="laser-m2" value="2" step="1"></td>
+                                    <td><input type="number" id="laser-x2" value="0.64" step="0.01"></td>
+                                    <td><input type="number" id="laser-d2" value="100" step="1"></td>
+                                    <td id="laser-calc-lambda2">640.0</td>
+                                </tr>
+                                <tr class="hover:bg-gray-700">
+                                    <td>3</td>
+                                    <td><input type="number" id="laser-a3" value="0.3" step="0.01"></td>
+                                    <td><input type="number" id="laser-m3" value="1" step="1"></td>
+                                    <td><input type="number" id="laser-x3" value="0.43" step="0.01"></td>
+                                    <td><input type="number" id="laser-d3" value="100" step="1"></td>
+                                    <td id="laser-calc-lambda3">645.0</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex items-center justify-end">
+                        <button onclick="calculateLaserDiffraction()" class="neon-button bg-green-900 text-white px-6 py-2 rounded-lg font-semibold">
+                            Calculate Average Wavelength
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-4 border border-green-500 rounded-lg bg-green-900/20">
+                    <h3 class="text-2xl font-semibold mb-2 text-green-400">🧾 (h) Result</h3>
+                    <p id="laser-result" class="text-xl font-bold text-green-300">Average Wavelength of Laser Light ($\lambda$) = 641.7 nm</p>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-2xl font-semibold mb-2 text-gray-300">🧩 (i) Conclusion</h3>
+                    <p class="text-gray-400">The Laser Diffraction experiment confirms the wave nature of light and successfully determines the wavelength of the laser beam based on the diffraction pattern produced by a single slit.</p>
+                </div>
+            </div>
+
+            <!-- Experiment 7: V-I Diode (Fully Implemented) -->
+            <div id="exp-vi-diode" class="experiment-section p-6 bg-gray-800 rounded-xl shadow-2xl border border-[#0ff]/30 mb-12">
+                <h2 class="text-3xl font-bold mb-6 text-[#0ff] glowing-underline">
+                    🧪 (a) V-I Characteristics of a Diode
+                </h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-2 space-y-8">
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">📘 (b) Objective</h3>
+                            <p class="text-gray-400">To plot the **forward** and **reverse V-I characteristics** of a p-n junction diode and determine the **Knee Voltage** and **Reverse Breakdown Voltage**.</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧬 (c) Apparatus Required</h3>
+                            <ul class="list-disc list-inside text-gray-400 pl-4 space-y-1">
+                                <li>P-N junction diode (e.g., Germanium or Silicon)</li>
+                                <li>Variable DC Power Supply (0-3V for Forward, 0-30V for Reverse)</li>
+                                <li>Voltmeter (0-3V range for forward bias)</li>
+                                <li>Ammeter (0-100mA for forward bias, 0-100µA for reverse bias)</li>
+                                <li>Resistor (current limiting)</li>
+                                <li>Breadboard and connecting wires</li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">⚙️ (d) Theory</h3>
+                            <p class="text-gray-400 mb-3">A p-n junction diode allows current to flow easily in the **forward bias** direction after the voltage crosses the **Knee Voltage** ($V_K$) (approx. 0.7V for Si, 0.3V for Ge). In the **reverse bias** direction, only a small **reverse saturation current** flows until the voltage reaches the **Breakdown Voltage** ($V_{BR}$), where current rapidly increases.</p>
+                            <p class="formula">
+                                $ I = I_0 \left( e^{\frac{V}{\eta V_T}} - 1 \right) $
+                            </p>
+                            <p class="text-sm text-gray-500 mt-2">Where $I_0$ is the reverse saturation current, $\eta$ is the ideality factor (1 or 2), and $V_T$ is the thermal voltage ($k_B T/e$).</p>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧫 (e) Procedure</h3>
+                            <ol class="list-decimal list-inside text-gray-400 pl-4 space-y-2">
+                                <li>**Forward Bias:** Connect the circuit with the positive terminal of the power supply to the p-side (Anode) of the diode. Slowly increase the voltage ($V$) and record the current ($I$).</li>
+                                <li>**Reverse Bias:** Reverse the polarity of the power supply (positive to n-side, Cathode). Increase the voltage and record the small reverse current. Note the voltage where the current sharply increases (Breakdown).</li>
+                                <li>Plot the collected V-I data on a graph with voltage on the x-axis and current on the y-axis (using different scales for forward and reverse).</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-2xl font-semibold mb-3 text-gray-300">🧠 (f) Simulation</h3>
+                        <div class="w-full bg-gray-900 rounded-xl p-2 border border-gray-700">
+                            <canvas id="diode-canvas" width="400" height="300" class="rounded-lg shadow-inner bg-gray-900"></canvas>
+                        </div>
+                        <div class="mt-4 space-y-3 p-3 bg-gray-700 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm">Bias Voltage ($V$) (V):</label>
+                                <!-- Range: -10V (Reverse) to +1.0V (Forward) -->
+                                <input type="range" id="diode-V-slider" min="-10" max="1.0" step="0.1" value="0.0" oninput="updateDiodeParams()">
+                                <span id="diode-V-display" class="text-[#0ff] text-sm w-12 text-right">0.0 V</span>
+                            </div>
+                            <p class="text-sm text-center text-gray-400 mt-2">Simulated Current: <span id="diode-I-display" class="text-yellow-400 font-bold">0.00 mA</span></p>
+                        </div>
+                        <button id="start-diode-sim" class="neon-button w-full mt-4 bg-purple-900 text-white px-4 py-2 rounded-lg font-semibold">
+                            Start Simulation
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-12">
+                    <h3 class="text-2xl font-semibold mb-4 text-gray-300">📊 (g) Observation Table</h3>
+                    <p class="text-sm text-gray-500 mb-2">Note: Forward Voltage ($V_F$) in V, Forward Current ($I_F$) in mA. Reverse Voltage ($V_R$) in V, Reverse Current ($I_R$) in $\mu$A.</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full obs-table text-sm text-gray-400">
+                            <thead>
+                                <tr class="bg-gray-700/50 text-[#0ff]">
+                                    <th colspan="2">Forward Bias</th>
+                                    <th colspan="2">Reverse Bias</th>
+                                </tr>
+                                <tr class="bg-gray-700/50 text-[#0ff]">
+                                    <th>$V_F$ (V)</th>
+                                    <th>$I_F$ (mA)</th>
+                                    <th>$V_R$ (V)</th>
+                                    <th>$I_R$ ($\mu$A)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="hover:bg-gray-700">
+                                    <td><input type="number" id="diode-vf1" value="0.6" step="0.1"></td>
+                                    <td><input type="number" id="diode-if1" value="1.5" step="0.1"></td>
+                                    <td><input type="number" id="diode-vr1" value="5" step="1"></td>
+                                    <td><input type="number" id="diode-ir1" value="1.0" step="0.1"></td>
+                                </tr>
+                                <tr class="hover:bg-gray-700">
+                                    <td><input type="number" id="diode-vf2" value="0.7" step="0.1"></td>
+                                    <td><input type="number" id="diode-if2" value="10.0" step="0.1"></td>
+                                    <td><input type="number" id="diode-vr2" value="10" step="1"></td>
+                                    <td><input type="number" id="diode-ir2" value="1.2" step="0.1"></td>
+                                </tr>
+                                <tr class="hover:bg-gray-700">
+                                    <td><input type="number" id="diode-vf3" value="0.75" step="0.1"></td>
+                                    <td><input type="number" id="diode-if3" value="30.0" step="0.1"></td>
+                                    <td><input type="number" id="diode-vr3" value="15" step="1"></td>
+                                    <td><input type="number" id="diode-ir3" value="1.5" step="0.1"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex items-center justify-end">
+                        <button onclick="calculateDiodeVI()" class="neon-button bg-green-900 text-white px-6 py-2 rounded-lg font-semibold">
+                            Determine Characteristic Voltages
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-4 border border-green-500 rounded-lg bg-green-900/20">
+                    <h3 class="text-2xl font-semibold mb-2 text-green-400">🧾 (h) Result</h3>
+                    <p id="diode-result-vk" class="text-xl font-bold text-green-300">Knee Voltage ($V_K$) = 0.65 V</p>
+                    <p id="diode-result-vbr" class="text-lg font-medium text-green-300">Reverse Breakdown Voltage ($V_{BR}$) = -18.0 V</p>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-2xl font-semibold mb-2 text-gray-300">🧩 (i) Conclusion</h3>
+                    <p class="text-gray-400">The V-I characteristics experiment visually and analytically demonstrates the non-linear behavior of a semiconductor diode in both forward and reverse bias conditions.</p>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- 3. About Page -->
+        <section id="about" class="page-content pt-16">
+            <h1 class="text-4xl font-bold mb-10 text-center glowing-underline">
+                About Virtual Physics Lab
+            </h1>
+            <div class="max-w-4xl mx-auto space-y-8 bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700">
+                <h2 class="text-3xl font-semibold text-[#0ff]">Purpose and Benefits</h2>
+                <p class="text-gray-300 leading-relaxed">
+                    Virtual Physics Lab was created to bridge the gap between theoretical knowledge and practical application, especially in the modern remote and digital learning environment. Traditional labs face challenges with equipment availability, cost, and scheduling. This virtual platform provides a high-fidelity, zero-risk environment for students to perform complex experiments.
+                </p>
+                
+                <ul class="list-disc list-inside text-gray-400 space-y-3 pl-4">
+                    <li><strong class="text-[#0ff]">Enhanced Visualization:</strong> Students can easily visualize complex phenomena like wave interference, diffraction, and electron behavior, which are often invisible or difficult to observe in a real-world setting.</li>
+                    <li><strong class="text-[#0ff]">Accessibility:</strong> Access to the entire lab is available anytime, anywhere, requiring only a web browser. This is ideal for blended and remote learning models.</li>
+                    <li><strong class="text-[#0ff]">Error-Free Learning:</strong> The platform allows students to repeat experiments infinitely without fear of equipment damage or personal injury, fostering a true environment of scientific inquiry.</li>
+                </ul>
+
+                <p class="text-gray-300 leading-relaxed">
+                    Our goal is to help Engineering Physics students master their practical curriculum by making learning intuitive, interactive, and visually stunning.
+                </p>
+            </div>
+        </section>
+
+        <!-- 4. Contact Page -->
+        <section id="contact" class="page-content pt-16">
+            <h1 class="text-4xl font-bold mb-10 text-center glowing-underline">
+                Get in Touch
+            </h1>
+            <div class="max-w-xl mx-auto bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700">
+                <h2 class="text-2xl font-semibold mb-6 text-[#0ff]">Feedback or Suggestions</h2>
+                <form onsubmit="event.preventDefault(); showContactMessage()">
+                    <div class="mb-4">
+                        <label for="name" class="block text-gray-400 mb-2">Name</label>
+                        <input type="text" id="name" class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:outline-none focus:border-[#0ff]" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="email" class="block text-gray-400 mb-2">Email</label>
+                        <input type="email" id="email" class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:outline-none focus:border-[#0ff]" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="message" class="block text-gray-400 mb-2">Message</label>
+                        <textarea id="message" rows="4" class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:outline-none focus:border-[#0ff]" required></textarea>
+                    </div>
+                    <button type="submit" class="neon-button w-full bg-[#0a192f] text-[#0ff] px-6 py-3 rounded-lg font-semibold text-lg">
+                        Submit Message <i class="fas fa-paper-plane ml-2"></i>
+                    </button>
+                </form>
+                <div id="contact-message" class="mt-6 p-4 bg-green-900/50 text-green-300 rounded-lg hidden">
+                    Thank you for your feedback! This form is non-functional in this demo, but your suggestion is appreciated.
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 mt-8 py-6 border-t border-gray-700">
+        <div class="container mx-auto px-4 text-center text-gray-400 text-sm">
+            <p>© 2025 Virtual Physics Lab | Designed by Gemini (via prompt engineering)</p>
+            <p class="mt-2">Institution: Modern Engineering College of Technology, Hyderabad | Location: Digital Campus</p>
+        </div>
+    </footer>
+
+    <script>
+        // Global variables for animation control
+        let ringsAnimationInterval;
+        let diffractionAnimationRequest;
+        let photoelectricAnimationRequest;
+        let resonanceAnimationRequest;
+        let hallEffectAnimationRequest; 
+        let laserDiffractionAnimationRequest; 
+        
+        let isRingsSimRunning = false;
+        let isDiffractionSimRunning = false;
+        let isPhotoelectricSimRunning = false;
+        let isResonanceSimRunning = false;
+        let isHallEffectSimRunning = false;
+        let isLaserDiffractionSimRunning = false; 
+        let isDiodeSimRunning = false; 
+
+        // --- Data Definitions for Navigation & Cards ---
+        const experiments = [
+            { id: 'exp-newtons-rings', title: "Newton's Rings", icon: 'fa-ring', description: 'Wavelength determination using interference.' },
+            { id: 'exp-diffraction-grating', title: "Diffraction Grating", icon: 'fa-wave-square', description: 'Determine wavelength using the grating equation.' },
+            { id: 'exp-photoelectric-effect', title: "Photoelectric Effect", icon: 'fa-bolt', description: 'Study light-matter interaction and photon energy.' },
+            { id: 'exp-resonance-tube', title: "Resonance Tube", icon: 'fa-volume-up', description: 'Measure the velocity of sound in air.' },
+            { id: 'exp-hall-effect', title: "Hall Effect", icon: 'fa-magnet', description: 'Determine semiconductor carrier concentration.' },
+            { id: 'exp-laser-diffraction', title: "Laser Diffraction", icon: 'fa-crosshairs', description: 'Wavelength measurement using a single slit.' },
+            { id: 'exp-vi-diode', title: "V-I Characteristics of a Diode", icon: 'fa-microchip', description: 'Plotting the curve of a P-N junction.' },
+        ];
+
+
+        // --- Page Navigation and Routing ---
+
+        /**
+         * Shows the requested main page section, hides others, and handles experiment-specific navigation.
+         * @param {string} pageId - ID of the page/section to show ('home', 'experiments', 'about', 'contact', or an experiment ID).
+         */
+        function showPage(pageId) {
+            const pages = document.querySelectorAll('.page-content');
+            pages.forEach(page => page.style.display = 'none');
+
+            // Handle main page navigation
+            if (['home', 'about', 'contact'].includes(pageId)) {
+                document.getElementById(pageId).style.display = 'block';
+                // Stop all simulations when leaving experiments page
+                stopRingsSim();
+                stopDiffractionSim();
+                stopPhotoelectricSim();
+                stopResonanceTubeSim();
+                stopHallEffectSim();
+                stopLaserDiffractionSim(); 
+                stopDiodeSim();
+            } else if (pageId === 'experiments') {
+                document.getElementById('experiments').style.display = 'block';
+                showExperiment(experiments[0].id); // Default to the first experiment
+            } else if (pageId.startsWith('exp-')) {
+                document.getElementById('experiments').style.display = 'block';
+                showExperiment(pageId);
+            }
+            // Update URL hash (Optional but good for history/reload)
+            window.location.hash = pageId;
+
+            // Highlight active nav link
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('text-[#0ff]');
+                link.classList.add('text-gray-300');
+                if (link.getAttribute('href').substring(1) === (pageId.startsWith('exp-') ? 'experiments' : pageId)) {
+                    link.classList.add('text-[#0ff]');
+                    link.classList.remove('text-gray-300');
+                }
+            });
+            window.scrollTo(0, 0); // Scroll to top
+        }
+
+        /**
+         * Handles internal navigation within the Experiments section.
+         * @param {string} expId - ID of the specific experiment section to display.
+         */
+        function showExperiment(expId) {
+            const expSections = document.querySelectorAll('.experiment-section');
+            expSections.forEach(sec => sec.style.display = 'none');
+            
+            const targetExp = document.getElementById(expId);
+            if (targetExp) {
+                targetExp.style.display = 'block';
+                // Reset/stop simulations when switching experiments
+                stopRingsSim();
+                stopDiffractionSim(); 
+                stopPhotoelectricSim();
+                stopResonanceTubeSim();
+                stopHallEffectSim(); 
+                stopLaserDiffractionSim(); 
+                stopDiodeSim(); // Stop Diode sim when switching
+            }
+
+            // Highlight active experiment button
+            document.querySelectorAll('.exp-button').forEach(btn => {
+                btn.classList.remove('bg-[#0ff]', 'text-gray-900', 'neon-glow');
+                btn.classList.add('bg-gray-700', 'text-gray-300');
+                if (btn.id === `btn-${expId}`) {
+                    btn.classList.add('bg-[#0ff]', 'text-gray-900', 'neon-glow');
+                    btn.classList.remove('bg-gray-700', 'text-gray-300');
+                }
+            });
+        }
+
+        // --- Home Page Setup ---
+
+        function setupHomePage() {
+            const cardContainer = document.getElementById('experiment-cards-summary');
+            const expListContainer = document.getElementById('experiment-list');
+
+            experiments.forEach(exp => {
+                // Home Card Setup
+                const card = document.createElement('div');
+                card.className = 'experiment-card bg-gray-800 p-6 rounded-xl border border-gray-700 cursor-pointer text-center';
+                card.setAttribute('onclick', `showPage('${exp.id}')`);
+                card.innerHTML = `
+                    <i class="fas ${exp.icon} text-4xl text-[#0ff] mb-4 neon-glow"></i>
+                    <h3 class="text-xl font-bold mb-2 text-white">${exp.title}</h3>
+                    <p class="text-gray-400 text-sm">${exp.description}</p>
+                `;
+                cardContainer.appendChild(card);
+
+                // Experiment List Button Setup
+                const button = document.createElement('button');
+                button.id = `btn-${exp.id}`;
+                button.className = 'exp-button px-4 py-2 rounded-full font-medium transition duration-300 shadow-md';
+                button.textContent = exp.title;
+                button.setAttribute('onclick', `showExperiment('${exp.id}')`);
+                expListContainer.appendChild(button);
+            });
+            
+            // Particle Background initialization
+            const particleContainer = document.getElementById('particle-bg');
+            for(let i = 0; i < 30; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.left = `${Math.random() * 100}%`;
+                p.style.top = `${Math.random() * 100}%`;
+                p.style.animationDuration = `${5 + Math.random() * 5}s`;
+                p.style.animationDelay = `${-Math.random() * 5}s`;
+                p.style.setProperty('--x', `${(Math.random() - 0.5) * 500}px`);
+                p.style.setProperty('--y', `${(Math.random() - 0.5) * 500}px`);
+                particleContainer.appendChild(p);
+            }
+        }
+
+        // --- Simulation Logic ---
+
+        // 1. Newton's Rings Simulation Control
+        function startRingsSim() {
+            if (isRingsSimRunning) return;
+            isRingsSimRunning = true;
+            document.getElementById('start-rings-sim').textContent = 'Stop Simulation';
+            document.getElementById('start-rings-sim').onclick = stopRingsSim;
+
+            document.querySelectorAll('.ring').forEach(ring => {
+                ring.style.animationPlayState = 'running';
+                ring.classList.add('ring-active');
+            });
+        }
+
+        function stopRingsSim() {
+            if (!isRingsSimRunning) return;
+            isRingsSimRunning = false;
+            document.getElementById('start-rings-sim').textContent = 'Start Simulation';
+            document.getElementById('start-rings-sim').onclick = startRingsSim;
+            
+            document.querySelectorAll('.ring').forEach(ring => {
+                ring.style.animationPlayState = 'paused';
+                ring.classList.remove('ring-active');
+            });
+        }
+
+        // 2. Diffraction Grating Simulation Control
+        const diffractionCanvas = document.getElementById('diffraction-canvas');
+        const diffractionCtx = diffractionCanvas.getContext('2d');
+        const diffractionCenterX = diffractionCanvas.width / 2;
+        const screenDistance = 350;
+
+        let diffractionFrame = 0;
+
+        function drawDiffraction(timestamp) {
+            if (!isDiffractionSimRunning) return;
+            
+            diffractionCtx.clearRect(0, 0, diffractionCanvas.width, diffractionCanvas.height);
+            diffractionFrame++;
+            
+            diffractionCtx.fillStyle = '#4b5563';
+            diffractionCtx.fillRect(diffractionCenterX - 5, 0, 10, diffractionCanvas.height);
+            diffractionCtx.strokeStyle = '#0ff';
+            diffractionCtx.lineWidth = 1;
+            const waveAmplitude = 10;
+            const waveFrequency = 0.05;
+            const waveSpeed = 2;
+            
+            diffractionCtx.beginPath();
+            diffractionCtx.moveTo(0, diffractionCanvas.height / 2);
+            for (let x = 0; x < diffractionCenterX - 5; x++) {
+                const y = diffractionCanvas.height / 2 + waveAmplitude * Math.sin(x * waveFrequency + diffractionFrame * waveSpeed / 10);
+                diffractionCtx.lineTo(x, y);
+            }
+            diffractionCtx.stroke();
+            diffractionCtx.fillStyle = '#374151';
+            diffractionCtx.fillRect(diffractionCenterX + 15, 0, 5, diffractionCanvas.height);
+            const slitY = diffractionCanvas.height / 2;
+            const maxOrder = 3;
+
+            for (let n = -maxOrder; n <= maxOrder; n++) {
+                if (n === 0) {
+                    diffractionCtx.fillStyle = `rgba(0, 255, 255, 1)`;
+                    diffractionCtx.fillRect(diffractionCenterX + 15, slitY - 30, 5, 60);
+                } else {
+                    const angle = n * 0.1; 
+                    const yOffset = screenDistance * Math.tan(angle) * 0.5; 
+                    const intensity = Math.max(0, 1 - Math.abs(n) * 0.3); 
+                    
+                    diffractionCtx.fillStyle = `rgba(0, 255, 255, ${intensity})`;
+                    const height = 40 / (Math.abs(n) + 1);
+                    diffractionCtx.fillRect(diffractionCenterX + 15, slitY + yOffset - height/2, 5, height);
+                }
+            }
+
+            diffractionAnimationRequest = requestAnimationFrame(drawDiffraction);
+        }
+
+        function startDiffractionSim() {
+            if (isDiffractionSimRunning) return;
+            isDiffractionSimRunning = true;
+            document.getElementById('start-diffraction-sim').textContent = 'Stop Simulation';
+            document.getElementById('start-diffraction-sim').onclick = stopDiffractionSim;
+            drawDiffraction(0);
+        }
+
+        function stopDiffractionSim() {
+            if (!isDiffractionSimRunning) return;
+            isDiffractionSimRunning = false;
+            cancelAnimationFrame(diffractionAnimationRequest);
+            document.getElementById('start-diffraction-sim').textContent = 'Start Simulation';
+            document.getElementById('start-diffraction-sim').onclick = startDiffractionSim;
+            diffractionCtx.clearRect(0, 0, diffractionCanvas.width, diffractionCanvas.height);
+        }
+        
+        // 3. Photoelectric Effect Simulation Control
+        const peCanvas = document.getElementById('photoelectric-canvas');
+        const peCtx = peCanvas.getContext('2d');
+        const peCathodeX = 50;
+        const peAnodeX = peCanvas.width - 50;
+        let electrons = [];
+        let peParams = { freq: 1.5, intensity: 0.5, threshold: 1.0 };
+
+        function updatePhotoelectricParams() {
+            peParams.freq = parseFloat(document.getElementById('pe-freq-slider').value);
+            peParams.intensity = parseFloat(document.getElementById('pe-intensity-slider').value) / 100;
+            document.getElementById('pe-freq-display').textContent = `${peParams.freq.toFixed(1)} PHz`;
+            document.getElementById('pe-intensity-display').textContent = `${(peParams.intensity * 100).toFixed(0)}%`;
+        }
+        class Electron {
+            constructor(startX, startY, velocity) {
+                this.x = startX;
+                this.y = startY;
+                this.vx = velocity;
+                this.vy = (Math.random() - 0.5) * 0.5; 
+                this.color = `rgba(0, 255, 255, ${Math.min(1, velocity / 3)}`;
+                this.alive = true;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if (this.x > peAnodeX || this.y < 0 || this.y > peCanvas.height) {
+                    this.alive = false;
+                }
+            }
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        function drawPhotoelectric(timestamp) {
+            if (!isPhotoelectricSimRunning) return;
+            peCtx.clearRect(0, 0, peCanvas.width, peCanvas.height);
+            peCtx.fillStyle = '#1e293b';
+            peCtx.fillRect(peCathodeX - 5, 0, 5, peCanvas.height); 
+            peCtx.fillRect(peAnodeX, 0, 5, peCanvas.height); 
+            peCtx.fillStyle = '#0ff';
+            peCtx.fillRect(peCathodeX - 5, peCanvas.height/2 - 5, 5, 10); 
+            if (peParams.freq > 0) {
+                 const photonCount = 5;
+                 peCtx.strokeStyle = `hsl(${250 - peParams.freq * 50}, 100%, 50%)`;
+                 peCtx.lineWidth = 1;
+                 for (let i = 0; i < photonCount; i++) {
+                     peCtx.beginPath();
+                     peCtx.moveTo(peCathodeX - 50, peCanvas.height/2 + i * 5 - 10);
+                     peCtx.lineTo(peCathodeX, peCanvas.height/2 + i * 5 - 10);
+                     peCtx.stroke();
+                 }
+            }
+            const emissionRate = Math.max(0, peParams.intensity * (peParams.freq - peParams.threshold) * 0.1);
+            if (Math.random() < emissionRate) {
+                const mockKE = Math.max(0, peParams.freq - peParams.threshold); 
+                const velocity = Math.sqrt(mockKE) * 8; 
+                electrons.push(new Electron(peCathodeX, peCanvas.height / 2, velocity));
+            }
+            electrons = electrons.filter(e => e.alive);
+            electrons.forEach(e => {
+                e.update();
+                e.draw(peCtx);
+            });
+            photoelectricAnimationRequest = requestAnimationFrame(drawPhotoelectric);
+        }
+
+        function startPhotoelectricSim() {
+            if (isPhotoelectricSimRunning) return;
+            isPhotoelectricSimRunning = true;
+            document.getElementById('start-photoelectric-sim').textContent = 'Stop Simulation';
+            document.getElementById('start-photoelectric-sim').onclick = stopPhotoelectricSim;
+            electrons = []; 
+            updatePhotoelectricParams(); 
+            drawPhotoelectric(0);
+        }
+
+        function stopPhotoelectricSim() {
+            if (!isPhotoelectricSimRunning) return;
+            isPhotoelectricSimRunning = false;
+            cancelAnimationFrame(photoelectricAnimationRequest);
+            document.getElementById('start-photoelectric-sim').textContent = 'Start Simulation';
+            document.getElementById('start-photoelectric-sim').onclick = startPhotoelectricSim;
+            peCtx.clearRect(0, 0, peCanvas.width, peCanvas.height);
+        }
+        
+        // 4. Resonance Tube Simulation Control
+        const resCanvas = document.getElementById('resonance-canvas');
+        const resCtx = resCanvas.getContext('2d');
+        let resFrame = 0;
+
+        function updateResonanceParams() {
+            const lengthCm = parseFloat(document.getElementById('res-length-slider').value);
+            document.getElementById('res-length-display').textContent = `${lengthCm.toFixed(1)} cm`;
+        }
+        function drawResonanceTube(timestamp) {
+            if (!isResonanceSimRunning) return;
+
+            resCtx.clearRect(0, 0, resCanvas.width, resCanvas.height);
+            resFrame++;
+
+            const tubeWidth = 50;
+            const tubeHeight = resCanvas.height - 20;
+            const tubeX = resCanvas.width / 2 - tubeWidth / 2;
+            const tubeY = 10;
+            
+            const totalLength = 80; 
+            const currentLengthCm = parseFloat(document.getElementById('res-length-slider').value);
+            const freq = parseFloat(document.getElementById('res-freq-input').value);
+            
+            const currentLengthPixels = currentLengthCm * (tubeHeight / totalLength);
+            const waterLevelY = tubeY + tubeHeight - currentLengthPixels;
+
+            resCtx.strokeStyle = '#4b5563';
+            resCtx.lineWidth = 3;
+            resCtx.strokeRect(tubeX, tubeY, tubeWidth, tubeHeight);
+            resCtx.fillStyle = '#0f6'; 
+            resCtx.fillRect(tubeX, waterLevelY, tubeWidth, tubeY + tubeHeight - waterLevelY);
+            resCtx.fillStyle = '#1e293b';
+            resCtx.fillRect(tubeX + 1, tubeY, tubeWidth - 2, waterLevelY - tubeY);
+            resCtx.fillStyle = '#e5e7eb';
+            resCtx.fillRect(tubeX + tubeWidth/2 - 5, 0, 10, 10);
+            resCtx.fillRect(tubeX + tubeWidth/2 - 15, -10, 5, 20);
+            resCtx.fillRect(tubeX + tubeWidth/2 + 10, -10, 5, 20);
+            
+            const mockVelocityCmPerS = 34700;
+            const mockLambdaCm = mockVelocityCmPerS / freq;
+            
+            const resonanceRatio = currentLengthCm / (mockLambdaCm / 4);
+            const isResonance = (Math.abs(resonanceRatio - 1) < 0.1) || (Math.abs(resonanceRatio - 3) < 0.1);
+
+            if (isResonance) {
+                resCtx.strokeStyle = '#0ff'; 
+                resCtx.lineWidth = 2;
+                resCtx.shadowBlur = 10;
+                resCtx.shadowColor = '#0ff';
+                
+                resCtx.beginPath();
+                const waveAmp = tubeWidth / 2;
+                const waveFreq = (2 * Math.PI) / mockLambdaCm;
+                
+                for (let L = 0; L <= currentLengthCm; L += 1) {
+                    const xOffset = tubeWidth/2 + waveAmp * Math.sin(waveFreq * L) * Math.sin(resFrame * 0.1) * 0.5; 
+                    const y = tubeY + (currentLengthCm - L) * (tubeHeight / totalLength);
+
+                    if (L === 0) {
+                        resCtx.moveTo(tubeX + xOffset, y);
+                    } else {
+                        resCtx.lineTo(tubeX + xOffset, y);
+                    }
+                }
+                resCtx.stroke();
+                resCtx.shadowBlur = 0; 
+
+                resCtx.fillStyle = '#0ff';
+                resCtx.fillText(
+                    `L${Math.round(resonanceRatio)} Resonance!`, 
+                    tubeX + tubeWidth + 10, 
+                    waterLevelY + 10
+                );
+            }
+            
+            resonanceAnimationRequest = requestAnimationFrame(drawResonanceTube);
+        }
+
+        function startResonanceTubeSim() {
+            if (isResonanceSimRunning) return;
+            isResonanceSimRunning = true;
+            document.getElementById('start-resonance-sim').textContent = 'Stop Simulation';
+            document.getElementById('start-resonance-sim').onclick = stopResonanceTubeSim;
+            updateResonanceParams(); 
+            drawResonanceTube(0);
+        }
+
+        function stopResonanceTubeSim() {
+            if (!isResonanceSimRunning) return;
+            isResonanceSimRunning = false;
+            cancelAnimationFrame(resonanceAnimationRequest);
+            document.getElementById('start-resonance-sim').textContent = 'Start Simulation';
+            document.getElementById('start-resonance-sim').onclick = startResonanceTubeSim;
+            resCtx.clearRect(0, 0, resCanvas.width, resCanvas.height);
+        }
+
+        // 5. Hall Effect Simulation Control 
+        const hallCanvas = document.getElementById('hall-canvas');
+        const hallCtx = hallCanvas.getContext('2d');
+
+        let hallFrame = 0;
+        let hallCarriers = [];
+
+        function updateHallEffectParams() {
+            const B_T = parseFloat(document.getElementById('hall-B-slider').value);
+            const I_mA = parseFloat(document.getElementById('hall-I-slider').value);
+            document.getElementById('hall-B-display').textContent = `${B_T.toFixed(1)} T`;
+            document.getElementById('hall-I-display').textContent = `${I_mA.toFixed(0)} mA`;
+        }
+
+        class Carrier {
+            constructor(x, y, vx, vy, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.alive = true;
+                this.radius = 2;
+            }
+
+            update(forceY) {
+                this.vy += forceY * 0.005;
+                
+                this.x += this.vx * 0.8;
+                this.y += this.vy * 0.8;
+                
+                if (this.x > hallCanvas.width) {
+                    this.x = 0;
+                }
+                if (this.y < 0) this.y = 0;
+                if (this.y > hallCanvas.height) this.y = hallCanvas.height;
+            }
+
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawHallEffect(timestamp) {
+            if (!isHallEffectSimRunning) return;
+
+            hallCtx.clearRect(0, 0, hallCanvas.width, hallCanvas.height);
+            hallFrame++;
+
+            const I_mA = parseFloat(document.getElementById('hall-I-slider').value);
+            const B_T = parseFloat(document.getElementById('hall-B-slider').value);
+            const sampleHeight = hallCanvas.height / 2;
+            const sampleY = hallCanvas.height / 4;
+
+            // Draw Magnetic Field (B - out of the page)
+            hallCtx.strokeStyle = '#f0f';
+            hallCtx.lineWidth = 1;
+            for (let i = 0; i < hallCanvas.width; i += 20) {
+                for (let j = 0; j < hallCanvas.height; j += 20) {
+                    hallCtx.beginPath();
+                    hallCtx.arc(i + 10, j + 10, 3, 0, 2 * Math.PI);
+                    hallCtx.stroke();
+                    hallCtx.fillStyle = '#f0f';
+                    hallCtx.fillText('•', i + 8, j + 12); 
+                }
+            }
+            hallCtx.fillStyle = '#e5e7eb'; 
+
+            // Draw Semiconductor Sample (Hall Probe)
+            hallCtx.fillStyle = 'rgba(30, 41, 59, 0.8)'; 
+            hallCtx.fillRect(10, sampleY, hallCanvas.width - 20, sampleHeight);
+            hallCtx.strokeStyle = '#0ff';
+            hallCtx.lineWidth = 2;
+            hallCtx.strokeRect(10, sampleY, hallCanvas.width - 20, sampleHeight);
+
+            // Draw current direction (I)
+            hallCtx.fillStyle = '#0ff';
+            hallCtx.fillText(`I (${I_mA}mA) ->`, hallCanvas.width - 70, hallCanvas.height - 20);
+            
+            // Draw B-field indicator
+            hallCtx.fillStyle = '#f0f';
+            hallCtx.fillText(`B (${B_T}T) Out`, 10, hallCanvas.height - 20);
+
+            
+            const carrierType = 1; 
+            const deflectionFactor = carrierType * B_T * 0.5; 
+            const chargeColor = (carrierType === 1) ? '#ff0' : '#0f0'; 
+            const chargeVX = I_mA * 0.1 * carrierType; 
+            const chargeVY = 0;
+            
+            if (I_mA > 0 && Math.random() < I_mA * 0.1) {
+                hallCarriers.push(new Carrier(
+                    10, 
+                    sampleY + sampleHeight/2 + (Math.random() - 0.5) * (sampleHeight/2),
+                    chargeVX, 
+                    chargeVY, 
+                    chargeColor
+                ));
+            }
+
+            let accumulatedChargeY = 0; 
+            hallCarriers = hallCarriers.filter(c => c.x < hallCanvas.width);
+
+            hallCarriers.forEach(c => {
+                const forceY = c.vx * B_T; 
+                c.update(deflectionFactor);
+                c.draw(hallCtx);
+                
+                if (c.y > sampleY + sampleHeight * 0.9) {
+                    accumulatedChargeY += carrierType;
+                }
+            });
+            
+            // Draw Hall Voltage Accumulation (+ and - signs)
+            hallCtx.font = '16px Inter';
+            hallCtx.fillStyle = (carrierType === 1) ? '#f00' : '#00f'; 
+            hallCtx.fillText('+', hallCanvas.width - 15, sampleY + sampleHeight + 15);
+            hallCtx.fillStyle = (carrierType === 1) ? '#00f' : '#f00'; 
+            hallCtx.fillText('-', hallCanvas.width - 15, sampleY - 5);
+            
+            hallEffectAnimationRequest = requestAnimationFrame(drawHallEffect);
+        }
+
+        function startHallEffectSim() {
+            if (isHallEffectSimRunning) return;
+            isHallEffectSimRunning = true;
+            document.getElementById('start-hall-sim').textContent = 'Stop Simulation';
+            document.getElementById('start-hall-sim').onclick = stopHallEffectSim;
+            hallCarriers = []; 
+            updateHallEffectParams();
+            drawHallEffect(0);
+        }
+
+        function stopHallEffectSim() {
+            if (!isHallEffectSimRunning) return;
+            isHallEffectSimRunning = false;
+            cancelAnimationFrame(hallEffectAnimationRequest);
+            document.getElementById('start-hall-sim').textContent = 'Start Simulation';
+            document.getElementById('start-hall-sim').onclick = startHallEffectSim;
+            hallCtx.clearRect(0, 0, hallCanvas.width, hallCanvas.height);
+        }
+
+        // 6. Laser Diffraction Simulation Control 
+        const laserCanvas = document.getElementById('laser-canvas');
+        const laserCtx = laserCanvas.getContext('2d');
+        const laserScreenX = laserCanvas.width - 20;
+
+        function updateLaserDiffractionParams() {
+            const a_mm = parseFloat(document.getElementById('laser-a-slider').value);
+            const D_cm = parseFloat(document.getElementById('laser-D-slider').value);
+            document.getElementById('laser-a-display').textContent = `${a_mm.toFixed(1)} mm`;
+            document.getElementById('laser-D-display').textContent = `${D_cm.toFixed(0)} cm`;
+        }
+
+        function drawLaserDiffraction(timestamp) {
+            if (!isLaserDiffractionSimRunning) return;
+
+            laserCtx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
+
+            const a_mm = parseFloat(document.getElementById('laser-a-slider').value);
+            const D_cm = parseFloat(document.getElementById('laser-D-slider').value);
+            const centerX = 10;
+            const centerY = laserCanvas.height / 2;
+            
+            // Mock Laser Wavelength (He-Ne) for visualization (in nm)
+            const lambda_nm = 632.8; 
+            
+            // --- 1. Draw Laser Beam ---
+            laserCtx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; // Red Laser
+            laserCtx.lineWidth = 2;
+            laserCtx.beginPath();
+            laserCtx.moveTo(0, centerY);
+            laserCtx.lineTo(centerX, centerY);
+            laserCtx.stroke();
+            
+            // --- 2. Draw Slit ---
+            const slitWidthPixels = 40; // Fixed visual size
+            const slitCenter = centerX;
+            const slitHeightPixels = slitWidthPixels / a_mm; 
+
+            laserCtx.fillStyle = '#1e293b';
+            laserCtx.fillRect(slitCenter, 0, 5, centerY - slitHeightPixels / 2);
+            laserCtx.fillRect(slitCenter, centerY + slitHeightPixels / 2, 5, laserCanvas.height - (centerY + slitHeightPixels / 2));
+            laserCtx.strokeStyle = '#0ff';
+            laserCtx.strokeRect(slitCenter, centerY - slitHeightPixels/2, 5, slitHeightPixels);
+
+
+            // --- 3. Draw Diffraction Pattern (Screen) ---
+            laserCtx.fillStyle = '#374151'; // Screen color
+            laserCtx.fillRect(laserScreenX, 0, 10, laserCanvas.height);
+            
+            const maxOrder = 3;
+            // Calculate mock fringe location based on simplified formula: x = (m * lambda * D) / a
+            // Use mock scaling factor for visualization:
+            const scaleFactor = 0.05; 
+            const patternWidthFactor = (lambda_nm / a_mm) * (D_cm / 100) * scaleFactor; 
+            
+            for(let m = -maxOrder; m <= maxOrder; m++) {
+                if (m === 0) {
+                    // Central Maxima: Brightest, widest
+                    laserCtx.fillStyle = 'rgba(255, 0, 0, 1.0)';
+                    const width = 10;
+                    laserCtx.fillRect(laserScreenX, centerY - width, 10, 2 * width);
+                } else {
+                    // Side Minima (dark) and Secondary Maxima (faint)
+                    const x_pos = m * patternWidthFactor * 100; // Mock horizontal offset for drawing
+                    const intensity = 1.0 / (Math.abs(m) * 2 + 1); 
+                    const width = 5;
+                    
+                    laserCtx.fillStyle = `rgba(255, 0, 0, ${intensity})`;
+                    const patternY = centerY + x_pos; 
+                    laserCtx.fillRect(laserScreenX, patternY - width, 10, 2 * width); 
+                }
+            }
+            
+            // Draw lines showing deflection from slit to pattern
+            laserCtx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+            laserCtx.lineWidth = 1;
+            laserCtx.beginPath();
+            laserCtx.moveTo(slitCenter + 5, centerY);
+            laserCtx.lineTo(laserScreenX, centerY); // Central Maxima line
+            laserCtx.stroke();
+            
+            laserDiffractionAnimationRequest = requestAnimationFrame(drawLaserDiffraction);
+        }
+
+        function startLaserDiffractionSim() {
+            if (isLaserDiffractionSimRunning) return;
+            isLaserDiffractionSimRunning = true;
+            document.getElementById('start-laser-sim').textContent = 'Stop Simulation';
+            document.getElementById('start-laser-sim').onclick = stopLaserDiffractionSim;
+            updateLaserDiffractionParams();
+            drawLaserDiffraction(0);
+        }
+
+        function stopLaserDiffractionSim() {
+            if (!isLaserDiffractionSimRunning) return;
+            isLaserDiffractionSimRunning = false;
+            cancelAnimationFrame(laserDiffractionAnimationRequest);
+            document.getElementById('start-laser-sim').textContent = 'Start Simulation';
+            document.getElementById('start-laser-sim').onclick = startLaserDiffractionSim;
+            laserCtx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
+        }
+        
+        // 7. V-I Diode Simulation Control (New)
+        const diodeCanvas = document.getElementById('diode-canvas');
+        const diodeCtx = diodeCanvas.getContext('2d');
+        const DIODE_V_KNEE = 0.7; // Mock Silicon knee voltage
+        const DIODE_V_BREAKDOWN = -18.0; // Mock Breakdown voltage
+
+        let diodeParams = {
+            V: 0.0,
+            I: 0.0,
+            simData: []
+        };
+
+        function calculateDiodeCurrent(V) {
+            // Mock V-I curve based on standard silicon diode characteristics
+            if (V > 0) {
+                // Forward Bias
+                if (V < DIODE_V_KNEE) {
+                    return Math.pow(V / DIODE_V_KNEE, 3) * 10; // Slow cubic rise up to 10mA
+                } else {
+                    return 10 + 50 * (V - DIODE_V_KNEE); // Linear increase after knee
+                }
+            } else if (V < 0) {
+                // Reverse Bias
+                if (V > DIODE_V_BREAKDOWN) {
+                    return -1.0; // Microamperes (mock value)
+                } else {
+                    // Breakdown region
+                    return -1.0 - 50 * (DIODE_V_BREAKDOWN - V); // Rapid increase in negative current
+                }
+            }
+            return 0;
+        }
+
+        function updateDiodeParams() {
+            diodeParams.V = parseFloat(document.getElementById('diode-V-slider').value);
+            diodeParams.I = calculateDiodeCurrent(diodeParams.V);
+
+            document.getElementById('diode-V-display').textContent = `${diodeParams.V.toFixed(1)} V`;
+            
+            let currentDisplay;
+            if (diodeParams.V < -1) {
+                // Display reverse current in µA (scaled up for visualization)
+                currentDisplay = `${(Math.abs(diodeParams.I) * 10).toFixed(2)} µA (Rev)`;
+            } else {
+                // Display forward current in mA
+                currentDisplay = `${diodeParams.I.toFixed(2)} mA (Fwd)`;
+            }
+            document.getElementById('diode-I-display').textContent = currentDisplay;
+        }
+
+        function drawDiodeVI(timestamp) {
+            if (!isDiodeSimRunning) return;
+
+            diodeCtx.clearRect(0, 0, diodeCanvas.width, diodeCanvas.height);
+
+            const W = diodeCanvas.width;
+            const H = diodeCanvas.height;
+            const originX = W * 0.2; // Shift origin left for more forward bias space
+            const originY = H * 0.7; // Shift origin down for more reverse bias space
+
+            // Define Axes
+            diodeCtx.strokeStyle = '#4b5563';
+            diodeCtx.lineWidth = 2;
+            diodeCtx.beginPath();
+            diodeCtx.moveTo(0, originY); // X-axis (Voltage)
+            diodeCtx.lineTo(W, originY);
+            diodeCtx.moveTo(originX, 0); // Y-axis (Current)
+            diodeCtx.lineTo(originX, H);
+            diodeCtx.stroke();
+            
+            diodeCtx.fillStyle = '#e5e7eb';
+            diodeCtx.font = '10px Inter';
+            diodeCtx.fillText('V (V)', W - 20, originY + 15);
+            diodeCtx.fillText('I (mA)', originX - 30, 10);
+            diodeCtx.fillText('I (µA)', originX - 35, H - 5);
+
+
+            // Scaling Factors
+            const vScale = (W - originX) / 1.0; // Forward voltage max 1V
+            const vRevScale = originX / 20; // Reverse voltage max 20V (for scale representation)
+            const iScaleFwd = originY / 40; // Forward current max ~40mA
+            const iScaleRev = (H - originY) / 10; // Reverse current is small, scale for visualization
+
+            // Plot Curve Data
+            diodeCtx.strokeStyle = '#0ff';
+            diodeCtx.lineWidth = 3;
+            diodeCtx.beginPath();
+            
+            // Forward Bias (0 to 1.0V)
+            for (let v = 0; v <= 1.0; v += 0.01) {
+                const i = calculateDiodeCurrent(v);
+                const x = originX + v * vScale;
+                const y = originY - i * iScaleFwd;
+                if (v === 0) diodeCtx.moveTo(x, y);
+                else diodeCtx.lineTo(x, y);
+            }
+
+            // Reverse Bias (0 down to -20V)
+            for (let v = 0; v >= -20; v -= 0.5) {
+                const i = calculateDiodeCurrent(v);
+                const x = originX + v * vRevScale;
+                const y = originY - i * iScaleRev;
+                if (v === 0) diodeCtx.moveTo(originX, originY);
+                else diodeCtx.lineTo(x, y);
+            }
+            diodeCtx.stroke();
+
+            // Draw Current Measurement Point
+            const plotX = (diodeParams.V > 0) ? originX + diodeParams.V * vScale : originX + diodeParams.V * vRevScale;
+            const plotY = (diodeParams.V > 0) ? originY - diodeParams.I * iScaleFwd : originY - diodeParams.I * iScaleRev;
+            
+            diodeCtx.fillStyle = '#ff0';
+            diodeCtx.beginPath();
+            diodeCtx.arc(plotX, plotY, 4, 0, Math.PI * 2);
+            diodeCtx.fill();
+
+
+            // Draw Knee Voltage marker (approx)
+            diodeCtx.strokeStyle = '#f90';
+            diodeCtx.setLineDash([5, 5]);
+            diodeCtx.beginPath();
+            const kneeX = originX + DIODE_V_KNEE * vScale;
+            diodeCtx.moveTo(kneeX, originY);
+            diodeCtx.lineTo(kneeX, originY - 50);
+            diodeCtx.stroke();
+            diodeCtx.fillText(`V_K`, kneeX - 10, originY + 15);
+            
+            // Draw Breakdown Voltage marker
+            diodeCtx.strokeStyle = '#f00';
+            diodeCtx.beginPath();
+            const breakdownX = originX + DIODE_V_BREAKDOWN * vRevScale;
+            diodeCtx.moveTo(breakdownX, originY);
+            diodeCtx.lineTo(breakdownX, H);
+            diodeCtx.stroke();
+            diodeCtx.fillText(`V_BR`, breakdownX - 15, H - 5);
+            
+            diodeCtx.setLineDash([]);
+
+
+            hallEffectAnimationRequest = requestAnimationFrame(drawDiodeVI);
+        }
+
+        function startDiodeSim() {
+            if (isDiodeSimRunning) return;
+            isDiodeSimRunning = true;
+            document.getElementById('start-diode-sim').textContent = 'Stop Simulation';
+            document.getElementById('start-diode-sim').onclick = stopDiodeSim;
+            updateDiodeParams(); // Load initial params
+            drawDiodeVI(0);
+        }
+
+        function stopDiodeSim() {
+            if (!isDiodeSimRunning) return;
+            isDiodeSimRunning = false;
+            cancelAnimationFrame(hallEffectAnimationRequest);
+            document.getElementById('start-diode-sim').textContent = 'Start Simulation';
+            document.getElementById('start-diode-sim').onclick = startDiodeSim;
+            diodeCtx.clearRect(0, 0, diodeCanvas.width, diodeCanvas.height);
+        }
+
+        // --- Calculation Logic ---
+
+        // Auto-calculate for Newton's Rings table (No change)
+        function updateNewtonRingsTable() {
+            const d2 = parseFloat(document.getElementById('nr-d2').value) || 0;
+            const d4 = parseFloat(document.getElementById('nr-d4').value) || 0;
+            const d4b = parseFloat(document.getElementById('nr-d4-b').value) || 0;
+            const d6 = parseFloat(document.getElementById('nr-d6').value) || 0;
+
+            const diff1 = Math.abs(d4 * d4 - d2 * d2);
+            const diff2 = Math.abs(d6 * d6 - d4b * d4b);
+            const avgDiff = ((diff1 + diff2) / 2).toFixed(4);
+
+            document.getElementById('nr-calc-1').textContent = diff1.toFixed(4);
+            document.getElementById('nr-calc-2').textContent = diff2.toFixed(4);
+            document.getElementById('nr-avg-diff').textContent = avgDiff;
+            return parseFloat(avgDiff);
+        }
+
+        // Calculate final result for Newton's Rings (No change)
+        function calculateNewtonRings() {
+            const avgDiff = updateNewtonRingsTable();
+            const R = parseFloat(document.getElementById('nr-R').value) || 0; // in mm
+            const k = 2; // difference in ring order (n+2 to n)
+
+            if (R > 0 && avgDiff > 0) {
+                const lambda_mm = avgDiff / (4 * k * R);
+                const lambda_nm = (lambda_mm * 1e6).toFixed(0);
+
+                document.getElementById('nr-result').textContent = 
+                    `Calculated Wavelength of light ($\lambda$) = ${lambda_nm} nm`;
+            } else {
+                document.getElementById('nr-result').textContent = 
+                    'Error: Please enter valid R and observation values.';
+            }
+        }
+
+        // Auto-calculate for Diffraction Grating table (No change)
+        function updateDiffractionGratingTable() {
+            const dgVL = parseFloat(document.getElementById('dg-vl').value) || 0;
+            const dgVR = parseFloat(document.getElementById('dg-vr').value) || 0;
+            const dgYL = parseFloat(document.getElementById('dg-yl').value) || 0;
+            const dgYR = parseFloat(document.getElementById('dg-yr').value) || 0;
+
+            const twoThetaV = Math.abs(dgVR - dgVL).toFixed(2);
+            const thetaV = (twoThetaV / 2).toFixed(2);
+            document.getElementById('dg-calc-2theta-v').textContent = twoThetaV;
+            document.getElementById('dg-calc-theta-v').textContent = thetaV;
+
+            const twoThetaY = Math.abs(dgYR - dgYL).toFixed(2);
+            const thetaY = (twoThetaY / 2).toFixed(2);
+            document.getElementById('dg-calc-2theta-y').textContent = twoThetaY;
+            document.getElementById('dg-calc-theta-y').textContent = thetaY;
+            
+            return { yellowThetaDeg: parseFloat(thetaY) };
+        }
+
+        // Calculate final result for Diffraction Grating (No change)
+        function calculateDiffractionGrating() {
+            const { yellowThetaDeg } = updateDiffractionGratingTable();
+            const N = parseFloat(document.getElementById('dg-N').value) || 0; // Lines/cm
+            const n = 1; // Order
+
+            if (N > 0 && yellowThetaDeg > 0) {
+                const gratingElement_cm = 1 / N; 
+                const thetaRad = yellowThetaDeg * (Math.PI / 180);
+                const lambda_cm = (gratingElement_cm * Math.sin(thetaRad)) / n;
+                const lambda_nm = (lambda_cm * 1e7).toFixed(0);
+
+                document.getElementById('dg-result').textContent = 
+                    `Calculated Wavelength of light (Yellow Line, n=${n}) = ${lambda_nm} nm`;
+            } else {
+                document.getElementById('dg-result').textContent = 
+                    'Error: Please enter valid Lines/cm (N) and observation values.';
+            }
+        }
+
+        // Calculate final result for Photoelectric Effect (No change)
+        function calculatePhotoelectric() {
+            const nu1 = parseFloat(document.getElementById('pe-nu1').value) * 1e15 || 0;
+            const v1 = parseFloat(document.getElementById('pe-v1').value) || 0;
+            const nu2 = parseFloat(document.getElementById('pe-nu2').value) * 1e15 || 0;
+            const v2 = parseFloat(document.getElementById('pe-v2').value) || 0;
+            const e = 1.602e-19; 
+
+            if (nu1 > 0 && v1 >= 0 && nu2 > 0 && v2 >= 0) {
+                const slope = (v2 - v1) / (nu2 - nu1); 
+                const h_calc = slope * e; 
+                const phi_joules = (h_calc * nu1) - (e * v1);
+                const phi_eV = (phi_joules / e).toFixed(2);
+
+                document.getElementById('pe-result-h').textContent = 
+                    `Calculated Planck's Constant (h) = ${h_calc.toPrecision(3)} J\cdots`;
+                document.getElementById('pe-result-phi').textContent = 
+                    `Calculated Work Function (φ) = ${phi_eV} eV`;
+
+            } else {
+                document.getElementById('pe-result-h').textContent = 'Error: Enter valid observation values.';
+                document.getElementById('pe-result-phi').textContent = 'Error: Work function calculation failed.';
+            }
+        }
+        
+        // Auto-calculate for Resonance Tube table (No change)
+        function updateResonanceTubeTable() {
+            const nu1 = parseFloat(document.getElementById('res-nu1').value) || 0;
+            const l1 = parseFloat(document.getElementById('res-l1').value) || 0;
+            const l2 = parseFloat(document.getElementById('res-l2').value) || 0;
+            const nu2 = parseFloat(document.getElementById('res-nu2').value) || 0;
+            const l1b = parseFloat(document.getElementById('res-l1-b').value) || 0;
+            const l2b = parseFloat(document.getElementById('res-l2-b').value) || 0;
+
+            let lambda1 = 0;
+            if (l2 > l1) {
+                lambda1 = 2 * (l2 - l1);
+            }
+            document.getElementById('res-calc-lambda').textContent = lambda1.toFixed(1);
+
+            let lambda2 = 0;
+            if (l2b > l1b) {
+                lambda2 = 2 * (l2b - l1b);
+            }
+            document.getElementById('res-calc-lambda-b').textContent = lambda2.toFixed(1);
+            
+            return { nu1, lambda1, nu2, lambda2 };
+        }
+
+        // Calculate final result for Resonance Tube (No change)
+        function calculateResonanceTube() {
+            const { nu1, lambda1, nu2, lambda2 } = updateResonanceTubeTable();
+            const T_celsius = parseFloat(document.getElementById('res-temp').value) || 0;
+            const T_kelvin = T_celsius + 273.15;
+
+            let avgV = 0;
+            let count = 0;
+
+            if (nu1 > 0 && lambda1 > 0) {
+                const v1 = nu1 * (lambda1 / 100); 
+                avgV += v1;
+                count++;
+            }
+            if (nu2 > 0 && lambda2 > 0) {
+                const v2 = nu2 * (lambda2 / 100); 
+                avgV += v2;
+                count++;
+            }
+
+            if (count > 0) {
+                avgV /= count;
+                document.getElementById('res-result-v').textContent = 
+                    `Calculated Velocity of Sound ($v$) at ${T_celsius.toFixed(0)}°C = ${avgV.toFixed(1)} m/s`;
+                
+                const v0 = avgV / Math.sqrt(T_kelvin / 273.15);
+
+                document.getElementById('res-result-v0').textContent = 
+                    `Velocity of Sound at $0^\circ C$ ($v_0$) = ${v0.toFixed(1)} m/s`;
+            } else {
+                document.getElementById('res-result-v').textContent = 
+                    'Error: Please enter valid frequency and length observations.';
+                document.getElementById('res-result-v0').textContent = 
+                    'Error: Velocity at $0^\circ C$ calculation failed.';
+            }
+        }
+        
+        // Hall Effect Calculation (No change)
+        function calculateHallEffect() {
+            const t_mm = parseFloat(document.getElementById('hall-t').value) || 0; 
+            const i1_mA = parseFloat(document.getElementById('hall-i1').value) || 0;
+            const b1_T = parseFloat(document.getElementById('hall-b1').value) || 0;
+            const v1_mV = parseFloat(document.getElementById('hall-v1').value) || 0;
+            const i2_mA = parseFloat(document.getElementById('hall-i2').value) || 0;
+            const b2_T = parseFloat(document.getElementById('hall-b2').value) || 0;
+            const v2_mV = parseFloat(document.getElementById('hall-v2').value) || 0;
+
+            const t_m = t_mm / 1000; 
+            const e = 1.602e-19; 
+            let avgRh = 0;
+            let count = 0;
+
+            if (i1_mA > 0 && b1_T > 0) {
+                const i1_A = i1_mA / 1000; 
+                const v1_V = v1_mV / 1000; 
+                const rh1 = (v1_V * t_m) / (i1_A * b1_T);
+                avgRh += rh1;
+                count++;
+            }
+            
+            if (i2_mA > 0 && b2_T > 0) {
+                const i2_A = i2_mA / 1000; 
+                const v2_V = v2_mV / 1000; 
+                const rh2 = (v2_V * t_m) / (i2_A * b2_T);
+                avgRh += rh2;
+                count++;
+            }
+
+            if (count > 0) {
+                const rh_final = avgRh / count;
+                const n_final = 1 / (Math.abs(rh_final) * e);
+                
+                document.getElementById('hall-result-rh').textContent = 
+                    `Hall Coefficient ($R_H$) = ${rh_final.toExponential(2)} m$^3$/C`;
+                document.getElementById('hall-result-n').textContent = 
+                    `Carrier Concentration ($n$) = ${n_final.toExponential(2)} carriers/m$^3$`;
+            } else {
+                 document.getElementById('hall-result-rh').textContent = 
+                    'Error: Please enter valid T, I, B, and V observations.';
+                 document.getElementById('hall-result-n').textContent = 
+                    'Error: Carrier concentration calculation failed.';
+            }
+        }
+        
+        // Laser Diffraction Calculation (No change)
+        function calculateWavelength(a_mm, x_cm, D_cm, m) {
+            if (a_mm <= 0 || x_cm <= 0 || D_cm <= 0 || m <= 0) return NaN;
+
+            // Convert all dimensions to meters for calculation
+            const a_m = a_mm / 1000; // mm -> m
+            const x_m = x_cm / 100;  // cm -> m
+            const D_m = D_cm / 100;  // cm -> m
+            
+            // Formula: lambda = (a * x) / (D * m)
+            const lambda_m = (a_m * x_m) / (D_m * m);
+
+            // Convert result to nm
+            return lambda_m * 1e9;
+        }
+
+        function calculateLaserDiffraction() {
+            let totalLambda = 0;
+            let count = 0;
+
+            const rows = [
+                { a: 'laser-a1', m: 'laser-m1', x: 'laser-x1', D: 'laser-d1', result: 'laser-calc-lambda1' },
+                { a: 'laser-a2', m: 'laser-m2', x: 'laser-x2', D: 'laser-d2', result: 'laser-calc-lambda2' },
+                { a: 'laser-a3', m: 'laser-m3', x: 'laser-x3', D: 'laser-d3', result: 'laser-calc-lambda3' }
+            ];
+
+            rows.forEach(row => {
+                const a = parseFloat(document.getElementById(row.a).value) || 0;
+                const m = parseFloat(document.getElementById(row.m).value) || 0;
+                const x = parseFloat(document.getElementById(row.x).value) || 0;
+                const D = parseFloat(document.getElementById(row.D).value) || 0;
+
+                const lambda_nm = calculateWavelength(a, x, D, m);
+
+                if (!isNaN(lambda_nm)) {
+                    document.getElementById(row.result).textContent = lambda_nm.toFixed(1);
+                    totalLambda += lambda_nm;
+                    count++;
+                } else {
+                    document.getElementById(row.result).textContent = 'Err';
+                }
+            });
+
+            if (count > 0) {
+                const avgLambda = totalLambda / count;
+                document.getElementById('laser-result').textContent = 
+                    `Average Wavelength of Laser Light ($\lambda$) = ${avgLambda.toFixed(1)} nm`;
+            } else {
+                document.getElementById('laser-result').textContent = 
+                    'Error: Enter valid values for calculation.';
+            }
+        }
+        
+        // V-I Diode Calculation (New)
+        function calculateDiodeVI() {
+            const vf1 = parseFloat(document.getElementById('diode-vf1').value) || 0;
+            const if1 = parseFloat(document.getElementById('diode-if1').value) || 0;
+            const vf2 = parseFloat(document.getElementById('diode-vf2').value) || 0;
+            const if2 = parseFloat(document.getElementById('diode-if2').value) || 0;
+            const vf3 = parseFloat(document.getElementById('diode-vf3').value) || 0;
+            const if3 = parseFloat(document.getElementById('diode-if3').value) || 0;
+            
+            const vr1 = parseFloat(document.getElementById('diode-vr1').value) || 0;
+            const ir1 = parseFloat(document.getElementById('diode-ir1').value) || 0;
+            const vr2 = parseFloat(document.getElementById('diode-vr2').value) || 0;
+            const ir2 = parseFloat(document.getElementById('diode-ir2').value) || 0;
+            const vr3 = parseFloat(document.getElementById('diode-vr3').value) || 0;
+            const ir3 = parseFloat(document.getElementById('diode-ir3').value) || 0;
+
+            // 1. Determine Knee Voltage (V_K) - Mock Logic: Find the voltage where current jumps significantly (e.g., crossing 5 mA)
+            let vk = 0.0;
+            if (if1 < 5 && if2 >= 5 && vf2 > vf1) {
+                // If jump occurs between vf1 and vf2, estimate halfway point or use vf2
+                vk = (vf1 + vf2) / 2;
+            } else if (if2 < 5 && if3 >= 5 && vf3 > vf2) {
+                vk = (vf2 + vf3) / 2;
+            } else {
+                // Default to a common Silicon value or use the first high current voltage
+                vk = if2 > 5 ? vf2 : (if3 > 5 ? vf3 : 0.7);
+            }
+            
+            // 2. Determine Reverse Breakdown Voltage (V_BR) - Mock Logic: Find the voltage where reverse current is high (e.g., crossing 10 µA, or just use vr3)
+            let vbr = 0.0;
+            // Mock breakdown at 20µA for illustration
+            if (ir3 > 20 && ir3 > ir2) {
+                vbr = -vr3; // Use the highest reverse voltage if current is high
+            } else if (ir2 > 20 && ir2 > ir1) {
+                 vbr = -vr2;
+            } else {
+                // Mock estimate based on input values, assuming a breakdown near 20V
+                 vbr = -20.0;
+            }
+            // Ensure VBR is negative
+            vbr = (vbr > 0) ? -vbr : vbr;
+
+
+            document.getElementById('diode-result-vk').textContent = 
+                `Knee Voltage ($V_K$) = ${vk.toFixed(2)} V`;
+            document.getElementById('diode-result-vbr').textContent = 
+                `Reverse Breakdown Voltage ($V_{BR}$) = ${vbr.toFixed(1)} V`;
+        }
+
+
+        // --- Event Handlers & Initialization ---
+
+        function setupInputListeners() {
+            // Newton's Rings listeners
+            document.querySelectorAll('#exp-newtons-rings input[type="number"]').forEach(input => {
+                input.addEventListener('input', updateNewtonRingsTable);
+            });
+            // Diffraction Grating listeners
+            document.querySelectorAll('#exp-diffraction-grating input[type="number"]').forEach(input => {
+                input.addEventListener('input', updateDiffractionGratingTable);
+            });
+            // Photoelectric Effect listeners
+            document.querySelectorAll('#exp-photoelectric-effect input[type="number"]').forEach(input => {
+                input.addEventListener('input', () => { /* No auto-table calc needed here, only button trigger */ });
+            });
+            document.getElementById('pe-freq-slider').addEventListener('input', updatePhotoelectricParams);
+            document.getElementById('pe-intensity-slider').addEventListener('input', updatePhotoelectricParams);
+            
+            // Resonance Tube listeners
+            document.querySelectorAll('#exp-resonance-tube input[type="number"]').forEach(input => {
+                input.addEventListener('input', updateResonanceTubeTable);
+            });
+            document.getElementById('res-length-slider').addEventListener('input', updateResonanceParams);
+            
+            // Hall Effect listeners
+            document.getElementById('hall-B-slider').addEventListener('input', updateHallEffectParams);
+            document.getElementById('hall-I-slider').addEventListener('input', updateHallEffectParams);
+            document.querySelectorAll('#exp-hall-effect input[type="number"]').forEach(input => {
+                input.addEventListener('input', () => { /* No auto-table calc needed here, only button trigger */ });
+            });
+
+            // Laser Diffraction listeners 
+            document.getElementById('laser-a-slider').addEventListener('input', updateLaserDiffractionParams);
+            document.getElementById('laser-D-slider').addEventListener('input', updateLaserDiffractionParams);
+            document.querySelectorAll('#exp-laser-diffraction table input[type="number"]').forEach(input => {
+                input.addEventListener('input', calculateLaserDiffraction); // Re-calculate on table input change
+            });
+            
+            // V-I Diode listeners (New)
+            document.getElementById('diode-V-slider').addEventListener('input', updateDiodeParams);
+            document.querySelectorAll('#exp-vi-diode table input[type="number"]').forEach(input => {
+                input.addEventListener('input', () => { /* Calculation is triggered by button */ }); 
+            });
+            
+            // Set initial simulation buttons
+            document.getElementById('start-rings-sim').onclick = startRingsSim;
+            document.getElementById('start-diffraction-sim').onclick = startDiffractionSim;
+            document.getElementById('start-photoelectric-sim').onclick = startPhotoelectricSim;
+            document.getElementById('start-resonance-sim').onclick = startResonanceTubeSim;
+            document.getElementById('start-hall-sim').onclick = startHallEffectSim; 
+            document.getElementById('start-laser-sim').onclick = startLaserDiffractionSim; 
+            document.getElementById('start-diode-sim').onclick = startDiodeSim; // New sim start
+        }
+
+        function showContactMessage() {
+            document.getElementById('contact-message').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('contact-message').classList.add('hidden');
+                document.getElementById('name').value = '';
+                document.getElementById('email').value = '';
+                document.getElementById('message').value = '';
+            }, 3000);
+        }
+
+        // Initial setup function runs on window load
+        window.onload = function() {
+            setupHomePage();
+            setupInputListeners();
+            
+            const initialPage = window.location.hash.substring(1) || 'home';
+            showPage(initialPage);
+
+            // Run initial mock calculations to populate table results
+            updateNewtonRingsTable();
+            updateDiffractionGratingTable();
+            calculatePhotoelectric();
+            updatePhotoelectricParams();
+            updateResonanceTubeTable();
+            calculateResonanceTube();
+            updateResonanceParams();
+            updateHallEffectParams(); 
+            calculateHallEffect(); 
+            updateLaserDiffractionParams(); 
+            calculateLaserDiffraction(); 
+            updateDiodeParams(); // Initialize Diode sliders
+            calculateDiodeVI(); // Run initial Diode calculation
+        };
+
+    </script>
+</body>
+</html>
